@@ -1,5 +1,10 @@
 #pragma once
 
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <cstdint>
+
 #include <vector>
 #include <gl/Camera.h>
 #include <gl/Shader.h>

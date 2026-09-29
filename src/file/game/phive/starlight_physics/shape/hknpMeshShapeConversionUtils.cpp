@@ -1,3 +1,7 @@
+#include <cmath>
+#include <cstring>
+#include <limits>
+#include <cstdint>
 #include <file/game/phive/starlight_physics/shape/hknpMeshShapeConversionUtils.h>
 #include <glm/common.hpp>
 #include <glm/vec4.hpp>

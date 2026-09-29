@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 
 #include <glm/vec4.hpp>
 #include <file/game/phive/starlight_physics/common/hkAabb.h>

@@ -1,5 +1,7 @@
 #pragma once
 
+#include <unordered_map>
+
 #include <cstdint>
 #include <file/game/byml/BymlFile.h>
 #include <game/Scene.h>

@@ -1,3 +1,8 @@
+#include <limits>
+#include <string>
+#include <utility>
+#include <vector>
+#include <cstdint>
 #include <rendering/mapeditor/TerrainEditor.h>
 
 #include <rendering/mapeditor/UIMapEditor.h>

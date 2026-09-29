@@ -1,5 +1,8 @@
 #pragma once
 
+#include <string>
+#include <cstdint>
+
 #include "imgui.h"
 #include <game/BancEntity.h>
 #include <vector>

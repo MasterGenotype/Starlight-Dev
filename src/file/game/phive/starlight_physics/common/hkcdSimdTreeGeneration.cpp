@@ -1,3 +1,5 @@
+#include <limits>
+#include <cstdint>
 #include <file/game/phive/starlight_physics/common/hkcdSimdTreeGeneration.h>
 
 #include <file/game/phive/starlight_physics/common/hkcdSimdTreeOperations.h>

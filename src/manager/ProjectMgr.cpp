@@ -1,3 +1,7 @@
+#include <algorithm>
+#include <functional>
+#include <string>
+#include <vector>
 #include "ProjectMgr.h"
 
 #include <util/FileUtil.h>

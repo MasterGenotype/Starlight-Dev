@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 
 #include <string>
 #include <file/game/sarc/SarcFile.h>

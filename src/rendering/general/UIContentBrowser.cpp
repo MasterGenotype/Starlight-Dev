@@ -1,3 +1,4 @@
+#include <string>
 #include "UIContentBrowser.h"
 
 #include "imgui.h"

@@ -1,3 +1,9 @@
+#include <cmath>
+#include <iterator>
+#include <limits>
+#include <utility>
+#include <vector>
+#include <cstdint>
 #include <file/game/phive/starlight_physics/shape/hknpMeshShapeBuilder.h>
 
 #include <file/game/phive/starlight_physics/common/hkcdSimdTreeOperations.h>

@@ -1,5 +1,9 @@
 #pragma once
 
+#include <algorithm>
+#include <utility>
+#include <cstdint>
+
 #define GLM_ENABLE_EXPERIMENTAL
 
 #include <glm/vec3.hpp>

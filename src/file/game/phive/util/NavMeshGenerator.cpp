@@ -1,3 +1,4 @@
+#include <cstring>
 #include "NavMeshGenerator.h"
 
 #include <memory>

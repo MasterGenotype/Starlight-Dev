@@ -1,3 +1,10 @@
+#include <cmath>
+#include <iterator>
+#include <memory>
+#include <set>
+#include <string>
+#include <vector>
+#include <cstdint>
 #include "UIAINBEditor.h"
 
 #include <util/Logger.h>

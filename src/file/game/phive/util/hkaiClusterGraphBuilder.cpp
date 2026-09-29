@@ -1,3 +1,7 @@
+#include <algorithm>
+#include <utility>
+#include <vector>
+#include <cstdint>
 #include "hkaiClusterGraphBuilder.h"
 
 #include <random>

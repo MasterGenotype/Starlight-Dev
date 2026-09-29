@@ -1,5 +1,8 @@
 #pragma once
 
+#include <vector>
+#include <cstdint>
+
 #include <file/game/phive/classes/HavokClasses.h>
 #include <glm/vec3.hpp>
 

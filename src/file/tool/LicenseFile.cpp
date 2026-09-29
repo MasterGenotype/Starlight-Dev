@@ -1,3 +1,6 @@
+#include <cstring>
+#include <string>
+#include <cstdint>
 #include "LicenseFile.h"
 
 #include <util/Logger.h>

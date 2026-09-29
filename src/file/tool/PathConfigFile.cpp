@@ -1,3 +1,6 @@
+#include <cstring>
+#include <string>
+#include <cstdint>
 #include "PathConfigFile.h"
 
 #include <util/FileUtil.h>

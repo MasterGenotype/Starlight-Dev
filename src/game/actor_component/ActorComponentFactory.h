@@ -1,5 +1,7 @@
 #pragma once
 
+#include <unordered_map>
+
 #include <game/actor_component/ActorComponentBase.h>
 #include <game/ActorPack.h>
 #include <memory>

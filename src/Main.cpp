@@ -1,4 +1,5 @@
-﻿#include <Editor.h>
+#include <iostream>
+#include <Editor.h>
 #include <manager/UIMgr.h>
 #include <manager/AINBNodeMgr.h>
 #include <util/backward.h>

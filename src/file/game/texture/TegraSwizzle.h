@@ -1,5 +1,8 @@
 #pragma once
 
+#include <vector>
+#include <cstdint>
+
 #include <cmath>
 #include <file/game/texture/TexToGoFile.h>
 #include <unordered_map>

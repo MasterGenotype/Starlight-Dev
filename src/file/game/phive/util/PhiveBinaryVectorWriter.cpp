@@ -1,3 +1,4 @@
+#include <string>
 #include <file/game/phive/util/PhiveBinaryVectorWriter.h>
 
 namespace application::file::game::phive::util

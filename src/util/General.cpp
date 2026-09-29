@@ -1,3 +1,4 @@
+#include <string>
 #include "General.h"
 
 namespace application::util

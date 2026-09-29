@@ -1,5 +1,11 @@
 #pragma once
 
+#include <map>
+#include <string>
+#include <variant>
+#include <vector>
+#include <cstdint>
+
 #include <rendering/UIWindowBase.h>
 #include <file/game/bfres/BfresFile.h>
 #include <manager/FramebufferMgr.h>

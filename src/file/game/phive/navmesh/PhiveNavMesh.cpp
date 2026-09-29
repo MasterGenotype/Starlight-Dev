@@ -1,3 +1,8 @@
+#include <array>
+#include <string>
+#include <utility>
+#include <vector>
+#include <cstdint>
 #include "PhiveNavMesh.h"
 #include "PhiveNavMeshStreaming.h"
 

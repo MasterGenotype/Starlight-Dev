@@ -1,3 +1,8 @@
+#include <filesystem>
+#include <string>
+#include <utility>
+#include <vector>
+#include <cstdint>
 #include "NavMeshImplementationSingleScene.h"
 
 #include <util/Logger.h>

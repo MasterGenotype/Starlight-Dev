@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 
 #include <util/BinaryVectorReader.h>
 #include <util/Logger.h>

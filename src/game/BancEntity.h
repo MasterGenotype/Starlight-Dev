@@ -1,5 +1,9 @@
 #pragma once
 
+#include <map>
+#include <utility>
+#include <vector>
+
 #include <cstdint>
 #include <string>
 #include <optional>

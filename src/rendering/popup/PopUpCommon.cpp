@@ -1,3 +1,4 @@
+#include <string>
 #include "PopUpCommon.h"
 
 #include <manager/ActorPackMgr.h>

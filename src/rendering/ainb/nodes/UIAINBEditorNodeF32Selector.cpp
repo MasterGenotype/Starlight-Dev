@@ -1,3 +1,7 @@
+#include <memory>
+#include <string>
+#include <vector>
+#include <cstdint>
 #include "UIAINBEditorNodeF32Selector.h"
 
 #include <util/Logger.h>

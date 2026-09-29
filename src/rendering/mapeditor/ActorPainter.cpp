@@ -1,3 +1,11 @@
+#include <chrono>
+#include <cmath>
+#include <limits>
+#include <optional>
+#include <string>
+#include <utility>
+#include <vector>
+#include <cstdint>
 #include "ActorPainter.h"
 
 #include <rendering/mapeditor/UIMapEditor.h>

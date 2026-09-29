@@ -1,5 +1,9 @@
 #pragma once
 
+#include <string>
+#include <vector>
+#include <cstdint>
+
 #include <rendering/UIWindowBase.h>
 #include <file/game/bfres/BfresFile.h>
 #include <file/game/phive/shape/PhiveShape.h>

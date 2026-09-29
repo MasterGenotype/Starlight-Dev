@@ -1,3 +1,8 @@
+#include <algorithm>
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
 #include <manager/PluginMgr.h>
 
 #include <plugin/impl/PluginTerrainModificationUtil.h>

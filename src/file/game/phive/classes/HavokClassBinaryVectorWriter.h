@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 
 #include <util/BinaryVectorWriter.h>
 #include <string>

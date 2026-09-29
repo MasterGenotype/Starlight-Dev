@@ -1,5 +1,8 @@
 #pragma once
 
+#include <cstring>
+#include <cstdint>
+
 #include <string>
 #include <vector>
 #include <unordered_map>
@@ -63,15 +66,15 @@ namespace application::file::game::byml
             std::string& GetKey();
             std::vector<BymlFile::Node>& GetChildren();
 
-            template<class T> T GetValue() //For all numbers
+            // NOTE: the upstream source used explicit template specialisations inside
+            // the class body. MSVC accepts that; ISO C++ (and therefore GCC/Clang)
+            // requires specialisations at namespace scope. Rewritten as a single
+            // primary template with `if constexpr` dispatch - same call sites,
+            // same behaviour, portable.
+            template<class T> T GetValue()
             {
-                T Value;
-                memcpy(&Value, mValue.data(), sizeof(Value));
-                return Value;
-            }
-
-            template<> std::string GetValue<std::string>() //For strings
-            {
+                if constexpr (std::is_same_v<T, std::string>) //For strings
+                {
                 std::vector<unsigned char> Input = mValue;
 
                 if (mType != BymlFile::Type::StringIndex)
@@ -110,21 +113,26 @@ namespace application::file::game::byml
                 }
                 return Result;
             }
-
-            template<> bool GetValue<bool>() //For booleans
-            {
-                return mValue[0];
-            }
-
-            template<> glm::vec3 GetValue<glm::vec3>() //For Vec3f, like Translate, Rotate, Scale, etc.
-            {
+                else if constexpr (std::is_same_v<T, bool>) //For booleans
+                {
+                    return mValue[0];
+                }
+                else if constexpr (std::is_same_v<T, glm::vec3>) //For Vec3f, like Translate, Rotate, Scale, etc.
+                {
                 glm::vec3 Vec;
                 Vec.x = GetChild(0)->GetValue<float>();
                 Vec.y = GetChild(1)->GetValue<float>();
                 Vec.z = GetChild(2)->GetValue<float>();
                 return Vec;
             }
-            
+                else //For all numbers
+                {
+                    T Value;
+                    memcpy(&Value, mValue.data(), sizeof(Value));
+                    return Value;
+                }
+            }
+
             template<class T> 
             void SetValue(T Value) //Value is a default C++ type
             {

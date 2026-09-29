@@ -1,3 +1,7 @@
+#include <map>
+#include <string>
+#include <variant>
+#include <cstdint>
 #include "StaticCompoundImplementationBase.h"
 
 namespace application::tool::scene

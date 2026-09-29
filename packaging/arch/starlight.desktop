@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=Starlight
+GenericName=TotK Map Editor
+Comment=Map editor for The Legend of Zelda: Tears of the Kingdom
+Exec=starlight
+Terminal=false
+Categories=Development;Graphics;
+Keywords=zelda;totk;map;editor;modding;
+StartupNotify=true

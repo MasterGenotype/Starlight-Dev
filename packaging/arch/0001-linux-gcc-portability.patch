@@ -1,0 +1,2656 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 83c32a4..f95ae24 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -4,9 +4,27 @@
+ cmake_minimum_required (VERSION 3.8)
+ set(CMAKE_CXX_STANDARD 20)
+ set(CMAKE_CXX_STANDARD_REQUIRED ON)
++
++# libs/libgit2 sets a *global* `CMAKE_C_STANDARD "90"` cache variable, which
++# then becomes the default for every C target in the whole tree - including
++# bullet3's clew.c, which is C99 and fails to compile under -std=c90.
++# Claim the cache entry first so libgit2's non-FORCE set() is a no-op; libgit2
++# still pins C90 on its own target (libs/libgit2/src/libgit2/CMakeLists.txt).
++set(CMAKE_C_STANDARD 11 CACHE STRING "C standard for targets that don't pin one" FORCE)
+ set(CMAKE_CXX_FLAGS_RELEASE "-O2")
+ set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+ 
++# Needed to assemble zstd's amd64 decode fast path (see the zstd target below).
++include(CheckLanguage)
++check_language(ASM)
++if(CMAKE_ASM_COMPILER AND NOT MSVC)
++    enable_language(ASM)
++    set(ZSTD_ASM_SUPPORTED ON)
++else()
++    set(ZSTD_ASM_SUPPORTED OFF)
++endif()
++message(STATUS "zstd amd64 assembly fast path: ${ZSTD_ASM_SUPPORTED}")
++
+ find_package(Git QUIET)
+ 
+ if(GIT_FOUND AND EXISTS "${CMAKE_SOURCE_DIR}/.git")
+@@ -369,6 +387,20 @@ target_link_libraries(imgui-node-editor PUBLIC
+ 
+ file(GLOB_RECURSE ZSTD_SOURCES "${CMAKE_SOURCE_DIR}/libs/zstd/lib/*.c")
+ list(FILTER ZSTD_SOURCES EXCLUDE REGEX "${CMAKE_SOURCE_DIR}/libs/zstd/lib/legacy/.*")
++
++# zstd's huf_decompress.c selects a hand-written amd64 assembly fast path whenever
++# the toolchain supports it (GCC/Clang on x86-64 - MSVC never does, which is why
++# globbing only *.c is enough on Windows). Without the .S the link fails with
++# undefined `HUF_decompress4X{1,2}_usingDTable_internal_fast_asm_loop`.
++if(ZSTD_ASM_SUPPORTED)
++    file(GLOB_RECURSE ZSTD_ASM_SOURCES "${CMAKE_SOURCE_DIR}/libs/zstd/lib/*.S")
++    list(FILTER ZSTD_ASM_SOURCES EXCLUDE REGEX "${CMAKE_SOURCE_DIR}/libs/zstd/lib/legacy/.*")
++    list(APPEND ZSTD_SOURCES ${ZSTD_ASM_SOURCES})
++else()
++    # No assembler available: tell zstd to use its portable C decode loop instead.
++    add_compile_definitions(ZSTD_DISABLE_ASM)
++endif()
++
+ add_library(zstd
+     ${ZSTD_SOURCES}
+ )
+diff --git a/src/Editor.cpp b/src/Editor.cpp
+index cc45e1b..d5fdfd1 100644
+--- a/src/Editor.cpp
++++ b/src/Editor.cpp
+@@ -1,3 +1,6 @@
++#include <cstring>
++#include <string>
++#include <cstdint>
+ #include "Editor.h"
+ 
+ #include <manager/UIMgr.h>
+diff --git a/src/Main.cpp b/src/Main.cpp
+index fb25bae..b104d6f 100644
+--- a/src/Main.cpp
++++ b/src/Main.cpp
+@@ -1,4 +1,5 @@
+-﻿#include <Editor.h>
++#include <iostream>
++#include <Editor.h>
+ #include <manager/UIMgr.h>
+ #include <manager/AINBNodeMgr.h>
+ #include <util/backward.h>
+diff --git a/src/file/game/ainb/AINBFile.cpp b/src/file/game/ainb/AINBFile.cpp
+index 8670d0a..1fa9688 100644
+--- a/src/file/game/ainb/AINBFile.cpp
++++ b/src/file/game/ainb/AINBFile.cpp
+@@ -1,3 +1,13 @@
++#include <algorithm>
++#include <cstring>
++#include <fstream>
++#include <iterator>
++#include <map>
++#include <sstream>
++#include <string>
++#include <utility>
++#include <vector>
++#include <cstdint>
+ #include "AINBFile.h"
+ 
+ #include <util/Logger.h>
+diff --git a/src/file/game/ainb/AINBFile.h b/src/file/game/ainb/AINBFile.h
+index af12581..68f6365 100644
+--- a/src/file/game/ainb/AINBFile.h
++++ b/src/file/game/ainb/AINBFile.h
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <cstdint>
+ 
+ #include <sstream>
+ #include <fstream>
+diff --git a/src/file/game/ainb/EXB.cpp b/src/file/game/ainb/EXB.cpp
+index 8f1fd7b..a7728ef 100644
+--- a/src/file/game/ainb/EXB.cpp
++++ b/src/file/game/ainb/EXB.cpp
+@@ -1,3 +1,8 @@
++#include <algorithm>
++#include <iterator>
++#include <string>
++#include <vector>
++#include <cstdint>
+ #include "EXB.h"
+ 
+ #include <util/Logger.h>
+diff --git a/src/file/game/ainb/EXB.h b/src/file/game/ainb/EXB.h
+index 58fea58..130b417 100644
+--- a/src/file/game/ainb/EXB.h
++++ b/src/file/game/ainb/EXB.h
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <cstdint>
+ 
+ #include <vector>
+ #include <string>
+diff --git a/src/file/game/bfres/BfresBinaryVectorReader.cpp b/src/file/game/bfres/BfresBinaryVectorReader.cpp
+index 792cda7..5db09ca 100644
+--- a/src/file/game/bfres/BfresBinaryVectorReader.cpp
++++ b/src/file/game/bfres/BfresBinaryVectorReader.cpp
+@@ -1,3 +1,8 @@
++#include <cstring>
++#include <string>
++#include <unordered_map>
++#include <vector>
++#include <cstdint>
+ #include "BfresBinaryVectorReader.h"
+ 
+ #include "BfresFile.h"
+diff --git a/src/file/game/bfres/BfresBinaryVectorReader.h b/src/file/game/bfres/BfresBinaryVectorReader.h
+index d93ba95..cd1c49b 100644
+--- a/src/file/game/bfres/BfresBinaryVectorReader.h
++++ b/src/file/game/bfres/BfresBinaryVectorReader.h
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <cstdint>
+ 
+ #include <util/BinaryVectorReader.h>
+ #include <util/Logger.h>
+diff --git a/src/file/game/bfres/BfresBinaryVectorWriter.cpp b/src/file/game/bfres/BfresBinaryVectorWriter.cpp
+index f93e099..9961d0b 100644
+--- a/src/file/game/bfres/BfresBinaryVectorWriter.cpp
++++ b/src/file/game/bfres/BfresBinaryVectorWriter.cpp
+@@ -1,3 +1,8 @@
++#include <cstring>
++#include <string>
++#include <unordered_map>
++#include <vector>
++#include <cstdint>
+ #include <file/game/bfres/BfresBinaryVectorWriter.h>
+ 
+ #include <algorithm>
+diff --git a/src/file/game/bfres/BfresBinaryVectorWriter.h b/src/file/game/bfres/BfresBinaryVectorWriter.h
+index 5c3a712..e54b514 100644
+--- a/src/file/game/bfres/BfresBinaryVectorWriter.h
++++ b/src/file/game/bfres/BfresBinaryVectorWriter.h
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <cstdint>
+ 
+ #include <util/BinaryVectorWriter.h>
+ #include <util/Logger.h>
+diff --git a/src/file/game/bfres/BfresFile.cpp b/src/file/game/bfres/BfresFile.cpp
+index 31abf53..e4de5e9 100644
+--- a/src/file/game/bfres/BfresFile.cpp
++++ b/src/file/game/bfres/BfresFile.cpp
+@@ -1,3 +1,11 @@
++#include <algorithm>
++#include <cmath>
++#include <fstream>
++#include <string>
++#include <unordered_map>
++#include <variant>
++#include <vector>
++#include <cstdint>
+ #define ZSTD_STATIC_LINKING_ONLY
+ 
+ #include "BfresFile.h"
+diff --git a/src/file/game/bfres/BfresFile.h b/src/file/game/bfres/BfresFile.h
+index b8e35cb..206baec 100644
+--- a/src/file/game/bfres/BfresFile.h
++++ b/src/file/game/bfres/BfresFile.h
+@@ -1,5 +1,9 @@
+ #pragma once
+ 
++#include <algorithm>
++#include <utility>
++#include <cstdint>
++
+ #define GLM_ENABLE_EXPERIMENTAL
+ 
+ #include <vector>
+diff --git a/src/file/game/byml/BymlFile.h b/src/file/game/byml/BymlFile.h
+index 9116cf6..9aa449a 100644
+--- a/src/file/game/byml/BymlFile.h
++++ b/src/file/game/byml/BymlFile.h
+@@ -1,5 +1,8 @@
+ #pragma once
+ 
++#include <cstring>
++#include <cstdint>
++
+ #include <string>
+ #include <vector>
+ #include <unordered_map>
+@@ -63,15 +66,15 @@ namespace application::file::game::byml
+             std::string& GetKey();
+             std::vector<BymlFile::Node>& GetChildren();
+ 
+-            template<class T> T GetValue() //For all numbers
+-            {
+-                T Value;
+-                memcpy(&Value, mValue.data(), sizeof(Value));
+-                return Value;
+-            }
+-
+-            template<> std::string GetValue<std::string>() //For strings
++            // NOTE: the upstream source used explicit template specialisations inside
++            // the class body. MSVC accepts that; ISO C++ (and therefore GCC/Clang)
++            // requires specialisations at namespace scope. Rewritten as a single
++            // primary template with `if constexpr` dispatch - same call sites,
++            // same behaviour, portable.
++            template<class T> T GetValue()
+             {
++                if constexpr (std::is_same_v<T, std::string>) //For strings
++                {
+                 std::vector<unsigned char> Input = mValue;
+ 
+                 if (mType != BymlFile::Type::StringIndex)
+@@ -110,21 +113,26 @@ namespace application::file::game::byml
+                 }
+                 return Result;
+             }
+-
+-            template<> bool GetValue<bool>() //For booleans
+-            {
+-                return mValue[0];
+-            }
+-
+-            template<> glm::vec3 GetValue<glm::vec3>() //For Vec3f, like Translate, Rotate, Scale, etc.
+-            {
++                else if constexpr (std::is_same_v<T, bool>) //For booleans
++                {
++                    return mValue[0];
++                }
++                else if constexpr (std::is_same_v<T, glm::vec3>) //For Vec3f, like Translate, Rotate, Scale, etc.
++                {
+                 glm::vec3 Vec;
+                 Vec.x = GetChild(0)->GetValue<float>();
+                 Vec.y = GetChild(1)->GetValue<float>();
+                 Vec.z = GetChild(2)->GetValue<float>();
+                 return Vec;
+             }
+-            
++                else //For all numbers
++                {
++                    T Value;
++                    memcpy(&Value, mValue.data(), sizeof(Value));
++                    return Value;
++                }
++            }
++
+             template<class T> 
+             void SetValue(T Value) //Value is a default C++ type
+             {
+diff --git a/src/file/game/cave/CrbinFile.cpp b/src/file/game/cave/CrbinFile.cpp
+index 950164c..f05d82e 100644
+--- a/src/file/game/cave/CrbinFile.cpp
++++ b/src/file/game/cave/CrbinFile.cpp
+@@ -1,3 +1,6 @@
++#include <string>
++#include <vector>
++#include <cstdint>
+ #define ZSTD_STATIC_LINKING_ONLY
+ 
+ #include "CrbinFile.h"
+diff --git a/src/file/game/cave/CrbinFile.h b/src/file/game/cave/CrbinFile.h
+index d11a593..e341131 100644
+--- a/src/file/game/cave/CrbinFile.h
++++ b/src/file/game/cave/CrbinFile.h
+@@ -1,5 +1,8 @@
+ #pragma once
+ 
++#include <string>
++#include <cstdint>
++
+ #include <vector>
+ #include <glm/vec3.hpp>
+ #include <glm/mat3x4.hpp>
+diff --git a/src/file/game/phive/PhiveNavMesh.cpp b/src/file/game/phive/PhiveNavMesh.cpp
+index 1800d01..60e33f3 100644
+--- a/src/file/game/phive/PhiveNavMesh.cpp
++++ b/src/file/game/phive/PhiveNavMesh.cpp
+@@ -1,3 +1,8 @@
++#include <iterator>
++#include <string>
++#include <utility>
++#include <vector>
++#include <cstdint>
+ #include <file/game/phive/PhiveNavMesh.h>
+ 
+ #include <util/Logger.h>
+diff --git a/src/file/game/phive/PhiveNavMesh.h b/src/file/game/phive/PhiveNavMesh.h
+index 7a62d2e..c3c2d50 100644
+--- a/src/file/game/phive/PhiveNavMesh.h
++++ b/src/file/game/phive/PhiveNavMesh.h
+@@ -1,5 +1,8 @@
+ #pragma once
+ 
++#include <string>
++#include <cstdint>
++
+ #include <file/game/phive/util/PhiveWrapper.h>
+ #include <file/game/phive/util/PhiveBinaryVectorReader.h>
+ #include <file/game/phive/util/PhiveBinaryVectorWriter.h>
+diff --git a/src/file/game/phive/PhiveStaticCompoundFile.cpp b/src/file/game/phive/PhiveStaticCompoundFile.cpp
+index fc360e2..219e7fd 100644
+--- a/src/file/game/phive/PhiveStaticCompoundFile.cpp
++++ b/src/file/game/phive/PhiveStaticCompoundFile.cpp
+@@ -1,3 +1,9 @@
++#include <algorithm>
++#include <cstring>
++#include <iterator>
++#include <string>
++#include <vector>
++#include <cstdint>
+ #include "PhiveStaticCompoundFile.h"
+ 
+ #include <util/Logger.h>
+diff --git a/src/file/game/phive/classes/HavokClassBinaryVectorReader.cpp b/src/file/game/phive/classes/HavokClassBinaryVectorReader.cpp
+index ce8ce3c..61cc46c 100644
+--- a/src/file/game/phive/classes/HavokClassBinaryVectorReader.cpp
++++ b/src/file/game/phive/classes/HavokClassBinaryVectorReader.cpp
+@@ -1,3 +1,6 @@
++#include <string>
++#include <vector>
++#include <cstdint>
+ #include "HavokClassBinaryVectorReader.h"
+ 
+ #include <file/game/phive/classes/HavokClasses.h>
+diff --git a/src/file/game/phive/classes/HavokClassBinaryVectorWriter.cpp b/src/file/game/phive/classes/HavokClassBinaryVectorWriter.cpp
+index 6bab186..ee3130d 100644
+--- a/src/file/game/phive/classes/HavokClassBinaryVectorWriter.cpp
++++ b/src/file/game/phive/classes/HavokClassBinaryVectorWriter.cpp
+@@ -1,3 +1,6 @@
++#include <functional>
++#include <string>
++#include <cstdint>
+ #include "HavokClassBinaryVectorWriter.h"
+ 
+ #include <file/game/phive/classes/HavokClasses.h>
+diff --git a/src/file/game/phive/classes/HavokClassBinaryVectorWriter.h b/src/file/game/phive/classes/HavokClassBinaryVectorWriter.h
+index 1953d37..dfe405a 100644
+--- a/src/file/game/phive/classes/HavokClassBinaryVectorWriter.h
++++ b/src/file/game/phive/classes/HavokClassBinaryVectorWriter.h
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <cstdint>
+ 
+ #include <util/BinaryVectorWriter.h>
+ #include <string>
+diff --git a/src/file/game/phive/classes/HavokClasses.h b/src/file/game/phive/classes/HavokClasses.h
+index bfd7bcf..60c28a2 100644
+--- a/src/file/game/phive/classes/HavokClasses.h
++++ b/src/file/game/phive/classes/HavokClasses.h
+@@ -1,5 +1,11 @@
+ #pragma once
+ 
++#include <algorithm>
++#include <limits>
++#include <string>
++#include <utility>
++#include <cstdint>
++
+ #include <file/game/phive/classes/HavokClassBinaryVectorReader.h>
+ #include <file/game/phive/classes/HavokClassBinaryVectorWriter.h>
+ #include <file/game/phive/starlight_physics/common/hkAabb.h>
+diff --git a/src/file/game/phive/classes/HavokDataHolder.cpp b/src/file/game/phive/classes/HavokDataHolder.cpp
+index a455378..b537d28 100644
+--- a/src/file/game/phive/classes/HavokDataHolder.cpp
++++ b/src/file/game/phive/classes/HavokDataHolder.cpp
+@@ -1,3 +1,5 @@
++#include <vector>
++#include <cstdint>
+ #include "HavokDataHolder.h"
+ 
+ namespace application::file::game::phive::classes
+diff --git a/src/file/game/phive/classes/HavokTagFile.h b/src/file/game/phive/classes/HavokTagFile.h
+index 3d98738..a38a773 100644
+--- a/src/file/game/phive/classes/HavokTagFile.h
++++ b/src/file/game/phive/classes/HavokTagFile.h
+@@ -1,5 +1,8 @@
+ #pragma once
+ 
++#include <string>
++#include <cstdint>
++
+ #include <vector>
+ #include <file/game/phive/classes/HavokClasses.h>
+ #include <file/game/phive/classes/HavokDataHolder.h>
+diff --git a/src/file/game/phive/navmesh/PhiveNavMesh.cpp b/src/file/game/phive/navmesh/PhiveNavMesh.cpp
+index ce06b5d..17382c0 100644
+--- a/src/file/game/phive/navmesh/PhiveNavMesh.cpp
++++ b/src/file/game/phive/navmesh/PhiveNavMesh.cpp
+@@ -1,3 +1,8 @@
++#include <array>
++#include <string>
++#include <utility>
++#include <vector>
++#include <cstdint>
+ #include "PhiveNavMesh.h"
+ #include "PhiveNavMeshStreaming.h"
+ 
+diff --git a/src/file/game/phive/navmesh/PhiveNavMesh.h b/src/file/game/phive/navmesh/PhiveNavMesh.h
+index be48b3d..3b046b5 100644
+--- a/src/file/game/phive/navmesh/PhiveNavMesh.h
++++ b/src/file/game/phive/navmesh/PhiveNavMesh.h
+@@ -1,5 +1,9 @@
+ #pragma once
+ 
++#include <memory>
++#include <string>
++#include <utility>
++
+ #include <cstdint>
+ #include <vector>
+ #include <array>
+diff --git a/src/file/game/phive/navmesh/PhiveNavMeshStreaming.cpp b/src/file/game/phive/navmesh/PhiveNavMeshStreaming.cpp
+index 7199c74..8569ed4 100644
+--- a/src/file/game/phive/navmesh/PhiveNavMeshStreaming.cpp
++++ b/src/file/game/phive/navmesh/PhiveNavMeshStreaming.cpp
+@@ -1,3 +1,6 @@
++#include <utility>
++#include <vector>
++#include <cstdint>
+ #include "PhiveNavMeshStreaming.h"
+ 
+ #include "PhiveNavMesh.h"
+diff --git a/src/file/game/phive/shape/PhiveShape.cpp b/src/file/game/phive/shape/PhiveShape.cpp
+index ee0fdd6..86792ad 100644
+--- a/src/file/game/phive/shape/PhiveShape.cpp
++++ b/src/file/game/phive/shape/PhiveShape.cpp
+@@ -1,3 +1,8 @@
++#include <cmath>
++#include <string>
++#include <utility>
++#include <vector>
++#include <cstdint>
+ #include "PhiveShape.h"
+ 
+ #include <file/game/phive/classes/HavokClassBinaryVectorReader.h>
+diff --git a/src/file/game/phive/shape/PhiveShape.h b/src/file/game/phive/shape/PhiveShape.h
+index 9f41f1d..290cb50 100644
+--- a/src/file/game/phive/shape/PhiveShape.h
++++ b/src/file/game/phive/shape/PhiveShape.h
+@@ -1,5 +1,8 @@
+ #pragma once
+ 
++#include <utility>
++#include <cstdint>
++
+ #include <file/game/phive/classes/HavokTagFile.h>
+ #include <file/game/phive/classes/HavokClasses.h>
+ #include <file/game/phive/util/PhiveMaterialData.h>
+diff --git a/src/file/game/phive/shape/PhiveShapeBVH.cpp b/src/file/game/phive/shape/PhiveShapeBVH.cpp
+index 981b8b6..8109c65 100644
+--- a/src/file/game/phive/shape/PhiveShapeBVH.cpp
++++ b/src/file/game/phive/shape/PhiveShapeBVH.cpp
+@@ -1,3 +1,11 @@
++#include <array>
++#include <functional>
++#include <limits>
++#include <memory>
++#include <unordered_set>
++#include <utility>
++#include <vector>
++#include <cstdint>
+ #include "PhiveShapeBVH.h"
+ 
+ #include <algorithm>
+diff --git a/src/file/game/phive/shape/PhiveShapeBVH.h b/src/file/game/phive/shape/PhiveShapeBVH.h
+index 1e92f9f..781c856 100644
+--- a/src/file/game/phive/shape/PhiveShapeBVH.h
++++ b/src/file/game/phive/shape/PhiveShapeBVH.h
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <cstdint>
+ 
+ #include <limits>
+ #include <array>
+diff --git a/src/file/game/phive/shape/PhiveShapeUtil.cpp b/src/file/game/phive/shape/PhiveShapeUtil.cpp
+index 644186b..d7080c7 100644
+--- a/src/file/game/phive/shape/PhiveShapeUtil.cpp
++++ b/src/file/game/phive/shape/PhiveShapeUtil.cpp
+@@ -1,3 +1,8 @@
++#include <unordered_map>
++#include <unordered_set>
++#include <utility>
++#include <vector>
++#include <cstdint>
+ #include "PhiveShapeUtil.h"
+ 
+ #include <limits>
+diff --git a/src/file/game/phive/shape/PhiveShapeUtil.h b/src/file/game/phive/shape/PhiveShapeUtil.h
+index 773a5c0..f5c7f4d 100644
+--- a/src/file/game/phive/shape/PhiveShapeUtil.h
++++ b/src/file/game/phive/shape/PhiveShapeUtil.h
+@@ -1,5 +1,9 @@
+ #pragma once
+ 
++#include <algorithm>
++#include <utility>
++#include <cstdint>
++
+ #define GLM_ENABLE_EXPERIMENTAL
+ 
+ #include <glm/vec3.hpp>
+diff --git a/src/file/game/phive/starlight_physics/ai/hkaiNavMeshBuilder.cpp b/src/file/game/phive/starlight_physics/ai/hkaiNavMeshBuilder.cpp
+index e9c7f1d..5c692b2 100644
+--- a/src/file/game/phive/starlight_physics/ai/hkaiNavMeshBuilder.cpp
++++ b/src/file/game/phive/starlight_physics/ai/hkaiNavMeshBuilder.cpp
+@@ -1,3 +1,5 @@
++#include <utility>
++#include <cstdint>
+ #include <file/game/phive/starlight_physics/ai/hkaiNavMeshBuilder.h>
+ 
+ #include <file/game/phive/starlight_physics/ai/hkaiNavMeshGeometryGenerator.h>
+diff --git a/src/file/game/phive/starlight_physics/common/hkAabb.cpp b/src/file/game/phive/starlight_physics/common/hkAabb.cpp
+index ce1a385..00d9eb5 100644
+--- a/src/file/game/phive/starlight_physics/common/hkAabb.cpp
++++ b/src/file/game/phive/starlight_physics/common/hkAabb.cpp
+@@ -1,3 +1,4 @@
++#include <limits>
+ #include <file/game/phive/starlight_physics/common/hkAabb.h>
+ 
+ #include <glm/vec3.hpp>
+diff --git a/src/file/game/phive/starlight_physics/common/hkGeometry.h b/src/file/game/phive/starlight_physics/common/hkGeometry.h
+index 9e6dc19..aec7155 100644
+--- a/src/file/game/phive/starlight_physics/common/hkGeometry.h
++++ b/src/file/game/phive/starlight_physics/common/hkGeometry.h
+@@ -1,5 +1,7 @@
+ #pragma once
+ 
++#include <vector>
++
+ #include <glm/vec4.hpp>
+ #include <glm/mat4x4.hpp>
+ 
+diff --git a/src/file/game/phive/starlight_physics/common/hkcdSimdTreeGeneration.cpp b/src/file/game/phive/starlight_physics/common/hkcdSimdTreeGeneration.cpp
+index 1bd23e0..ce631de 100644
+--- a/src/file/game/phive/starlight_physics/common/hkcdSimdTreeGeneration.cpp
++++ b/src/file/game/phive/starlight_physics/common/hkcdSimdTreeGeneration.cpp
+@@ -1,3 +1,5 @@
++#include <limits>
++#include <cstdint>
+ #include <file/game/phive/starlight_physics/common/hkcdSimdTreeGeneration.h>
+ 
+ #include <file/game/phive/starlight_physics/common/hkcdSimdTreeOperations.h>
+diff --git a/src/file/game/phive/starlight_physics/common/hkcdSimdTreeGeneration.h b/src/file/game/phive/starlight_physics/common/hkcdSimdTreeGeneration.h
+index 2bb872a..540429f 100644
+--- a/src/file/game/phive/starlight_physics/common/hkcdSimdTreeGeneration.h
++++ b/src/file/game/phive/starlight_physics/common/hkcdSimdTreeGeneration.h
+@@ -1,5 +1,7 @@
+ #pragma once
+ 
++#include <vector>
++
+ #include <cstdint>
+ #include <file/game/phive/starlight_physics/common/hkAabb.h>
+ #include <file/game/phive/classes/HavokClasses.h>
+diff --git a/src/file/game/phive/starlight_physics/common/hkcdSimdTreeOperations.cpp b/src/file/game/phive/starlight_physics/common/hkcdSimdTreeOperations.cpp
+index eb5a3a2..467089b 100644
+--- a/src/file/game/phive/starlight_physics/common/hkcdSimdTreeOperations.cpp
++++ b/src/file/game/phive/starlight_physics/common/hkcdSimdTreeOperations.cpp
+@@ -1,3 +1,5 @@
++#include <limits>
++#include <vector>
+ #include <file/game/phive/starlight_physics/common/hkcdSimdTreeOperations.h>
+ 
+ #include <algorithm>
+diff --git a/src/file/game/phive/starlight_physics/common/hkcdSimdTreeOperations.h b/src/file/game/phive/starlight_physics/common/hkcdSimdTreeOperations.h
+index 4130c7f..c04bfed 100644
+--- a/src/file/game/phive/starlight_physics/common/hkcdSimdTreeOperations.h
++++ b/src/file/game/phive/starlight_physics/common/hkcdSimdTreeOperations.h
+@@ -1,5 +1,9 @@
+ #pragma once
+ 
++#include <cstring>
++#include <limits>
++#include <cstdint>
++
+ #include <glm/vec4.hpp>
+ #include <glm/gtc/type_ptr.hpp>
+ #include <cassert>
+diff --git a/src/file/game/phive/starlight_physics/common/hkcdStaticAabbTreeGeneration.cpp b/src/file/game/phive/starlight_physics/common/hkcdStaticAabbTreeGeneration.cpp
+index 5bdca43..ac3c638 100644
+--- a/src/file/game/phive/starlight_physics/common/hkcdStaticAabbTreeGeneration.cpp
++++ b/src/file/game/phive/starlight_physics/common/hkcdStaticAabbTreeGeneration.cpp
+@@ -1,3 +1,6 @@
++#include <algorithm>
++#include <vector>
++#include <cstdint>
+ #include <file/game/phive/starlight_physics/common/hkcdStaticAabbTreeGeneration.h>
+ 
+ #include <bvh/sweep_sah_builder.hpp>
+diff --git a/src/file/game/phive/starlight_physics/common/hkcdStaticAabbTreeGeneration.h b/src/file/game/phive/starlight_physics/common/hkcdStaticAabbTreeGeneration.h
+index e0c33c3..14f5220 100644
+--- a/src/file/game/phive/starlight_physics/common/hkcdStaticAabbTreeGeneration.h
++++ b/src/file/game/phive/starlight_physics/common/hkcdStaticAabbTreeGeneration.h
+@@ -1,5 +1,8 @@
+ #pragma once
+ 
++#include <vector>
++#include <cstdint>
++
+ #include <file/game/phive/classes/HavokClasses.h>
+ #include <glm/vec3.hpp>
+ 
+diff --git a/src/file/game/phive/starlight_physics/shape/hknpMeshShapeBuilder.cpp b/src/file/game/phive/starlight_physics/shape/hknpMeshShapeBuilder.cpp
+index 5caa013..064ff39 100644
+--- a/src/file/game/phive/starlight_physics/shape/hknpMeshShapeBuilder.cpp
++++ b/src/file/game/phive/starlight_physics/shape/hknpMeshShapeBuilder.cpp
+@@ -1,3 +1,9 @@
++#include <cmath>
++#include <iterator>
++#include <limits>
++#include <utility>
++#include <vector>
++#include <cstdint>
+ #include <file/game/phive/starlight_physics/shape/hknpMeshShapeBuilder.h>
+ 
+ #include <file/game/phive/starlight_physics/common/hkcdSimdTreeOperations.h>
+diff --git a/src/file/game/phive/starlight_physics/shape/hknpMeshShapeConversionUtils.cpp b/src/file/game/phive/starlight_physics/shape/hknpMeshShapeConversionUtils.cpp
+index f273b0d..ec85ba7 100644
+--- a/src/file/game/phive/starlight_physics/shape/hknpMeshShapeConversionUtils.cpp
++++ b/src/file/game/phive/starlight_physics/shape/hknpMeshShapeConversionUtils.cpp
+@@ -1,3 +1,7 @@
++#include <cmath>
++#include <cstring>
++#include <limits>
++#include <cstdint>
+ #include <file/game/phive/starlight_physics/shape/hknpMeshShapeConversionUtils.h>
+ #include <glm/common.hpp>
+ #include <glm/vec4.hpp>
+diff --git a/src/file/game/phive/starlight_physics/shape/hknpMeshShapeConversionUtils.h b/src/file/game/phive/starlight_physics/shape/hknpMeshShapeConversionUtils.h
+index cf2088e..1324f25 100644
+--- a/src/file/game/phive/starlight_physics/shape/hknpMeshShapeConversionUtils.h
++++ b/src/file/game/phive/starlight_physics/shape/hknpMeshShapeConversionUtils.h
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <cstdint>
+ 
+ #include <glm/vec4.hpp>
+ #include <file/game/phive/starlight_physics/common/hkAabb.h>
+diff --git a/src/file/game/phive/util/BVHBuilder.cpp b/src/file/game/phive/util/BVHBuilder.cpp
+index 11aa9af..4938a9a 100644
+--- a/src/file/game/phive/util/BVHBuilder.cpp
++++ b/src/file/game/phive/util/BVHBuilder.cpp
+@@ -1,3 +1,6 @@
++#include <memory>
++#include <utility>
++#include <vector>
+ #include "BVHBuilder.h"
+ 
+ #include <bvh/vector.hpp>
+diff --git a/src/file/game/phive/util/BVNode.cpp b/src/file/game/phive/util/BVNode.cpp
+index 34bc5fc..fec29f4 100644
+--- a/src/file/game/phive/util/BVNode.cpp
++++ b/src/file/game/phive/util/BVNode.cpp
+@@ -1,3 +1,9 @@
++#include <algorithm>
++#include <cmath>
++#include <limits>
++#include <utility>
++#include <vector>
++#include <cstdint>
+ #include "BVNode.h"
+ 
+ #include <util/Logger.h>
+diff --git a/src/file/game/phive/util/BVNode.h b/src/file/game/phive/util/BVNode.h
+index 26e04a7..baa9470 100644
+--- a/src/file/game/phive/util/BVNode.h
++++ b/src/file/game/phive/util/BVNode.h
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <cstdint>
+ 
+ #include <glm/glm.hpp>
+ #include <vector>
+diff --git a/src/file/game/phive/util/NavMeshGenerator.cpp b/src/file/game/phive/util/NavMeshGenerator.cpp
+index 1661c32..f39ba6d 100644
+--- a/src/file/game/phive/util/NavMeshGenerator.cpp
++++ b/src/file/game/phive/util/NavMeshGenerator.cpp
+@@ -1,3 +1,4 @@
++#include <cstring>
+ #include "NavMeshGenerator.h"
+ 
+ #include <memory>
+diff --git a/src/file/game/phive/util/PhiveBinaryVectorReader.h b/src/file/game/phive/util/PhiveBinaryVectorReader.h
+index 4e7151d..bb682de 100644
+--- a/src/file/game/phive/util/PhiveBinaryVectorReader.h
++++ b/src/file/game/phive/util/PhiveBinaryVectorReader.h
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <cstdint>
+ 
+ #include <util/BinaryVectorReader.h>
+ #include <file/game/phive/util/PhiveWrapper.h>
+diff --git a/src/file/game/phive/util/PhiveBinaryVectorWriter.cpp b/src/file/game/phive/util/PhiveBinaryVectorWriter.cpp
+index 4f5d1cb..503a0b8 100644
+--- a/src/file/game/phive/util/PhiveBinaryVectorWriter.cpp
++++ b/src/file/game/phive/util/PhiveBinaryVectorWriter.cpp
+@@ -1,3 +1,4 @@
++#include <string>
+ #include <file/game/phive/util/PhiveBinaryVectorWriter.h>
+ 
+ namespace application::file::game::phive::util
+diff --git a/src/file/game/phive/util/PhiveBinaryVectorWriter.h b/src/file/game/phive/util/PhiveBinaryVectorWriter.h
+index bf374bf..4f59ed2 100644
+--- a/src/file/game/phive/util/PhiveBinaryVectorWriter.h
++++ b/src/file/game/phive/util/PhiveBinaryVectorWriter.h
+@@ -1,5 +1,8 @@
+ #pragma once
+ 
++#include <vector>
++#include <cstdint>
++
+ #include <util/BinaryVectorWriter.h>
+ #include <util/Logger.h>
+ #include <file/game/phive/util/PhiveWrapper.h>
+diff --git a/src/file/game/phive/util/PhiveMaterialData.cpp b/src/file/game/phive/util/PhiveMaterialData.cpp
+index 04d8280..3436316 100644
+--- a/src/file/game/phive/util/PhiveMaterialData.cpp
++++ b/src/file/game/phive/util/PhiveMaterialData.cpp
+@@ -1,3 +1,5 @@
++#include <vector>
++#include <cstdint>
+ #include "PhiveMaterialData.h"
+ 
+ namespace application::file::game::phive::util
+diff --git a/src/file/game/phive/util/PhiveMaterialData.h b/src/file/game/phive/util/PhiveMaterialData.h
+index e423eb3..f9faa01 100644
+--- a/src/file/game/phive/util/PhiveMaterialData.h
++++ b/src/file/game/phive/util/PhiveMaterialData.h
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <cstdint>
+ 
+ #include <vector>
+ 
+diff --git a/src/file/game/phive/util/PhiveWrapper.cpp b/src/file/game/phive/util/PhiveWrapper.cpp
+index d0e9712..36c07b7 100644
+--- a/src/file/game/phive/util/PhiveWrapper.cpp
++++ b/src/file/game/phive/util/PhiveWrapper.cpp
+@@ -1,3 +1,7 @@
++#include <string>
++#include <utility>
++#include <vector>
++#include <cstdint>
+ #include "PhiveWrapper.h"
+ 
+ #include <util/Logger.h>
+diff --git a/src/file/game/phive/util/PhiveWrapper.h b/src/file/game/phive/util/PhiveWrapper.h
+index 788a287..1cae4bb 100644
+--- a/src/file/game/phive/util/PhiveWrapper.h
++++ b/src/file/game/phive/util/PhiveWrapper.h
+@@ -1,5 +1,8 @@
+ #pragma once
+ 
++#include <string>
++#include <cstdint>
++
+ #include <vector>
+ #include <utility>
+ #include <util/BinaryVectorReader.h>
+diff --git a/src/file/game/phive/util/hkaiClusterGraphBuilder.cpp b/src/file/game/phive/util/hkaiClusterGraphBuilder.cpp
+index 4971b55..71b0658 100644
+--- a/src/file/game/phive/util/hkaiClusterGraphBuilder.cpp
++++ b/src/file/game/phive/util/hkaiClusterGraphBuilder.cpp
+@@ -1,3 +1,7 @@
++#include <algorithm>
++#include <utility>
++#include <vector>
++#include <cstdint>
+ #include "hkaiClusterGraphBuilder.h"
+ 
+ #include <random>
+diff --git a/src/file/game/phive/util/hkaiClusterGraphBuilder.h b/src/file/game/phive/util/hkaiClusterGraphBuilder.h
+index 3be309c..0b7c5c9 100644
+--- a/src/file/game/phive/util/hkaiClusterGraphBuilder.h
++++ b/src/file/game/phive/util/hkaiClusterGraphBuilder.h
+@@ -1,5 +1,7 @@
+ #pragma once
+ 
++#include <utility>
++
+ #include <file/game/phive/PhiveNavMesh.h>
+ #include <vector>
+ #include <glm/vec4.hpp>
+diff --git a/src/file/game/restbl/ResTblFile.cpp b/src/file/game/restbl/ResTblFile.cpp
+index 2b4fc42..396b9ef 100644
+--- a/src/file/game/restbl/ResTblFile.cpp
++++ b/src/file/game/restbl/ResTblFile.cpp
+@@ -1,3 +1,7 @@
++#include <iterator>
++#include <string>
++#include <vector>
++#include <cstdint>
+ #include "ResTblFile.h"
+ 
+ #include <fstream>
+diff --git a/src/file/game/restbl/ResTblFile.h b/src/file/game/restbl/ResTblFile.h
+index 6c490fd..3b56450 100644
+--- a/src/file/game/restbl/ResTblFile.h
++++ b/src/file/game/restbl/ResTblFile.h
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <cstdint>
+ 
+ #include <string>
+ #include <vector>
+diff --git a/src/file/game/sarc/SarcFile.cpp b/src/file/game/sarc/SarcFile.cpp
+index d5b4870..22f31d3 100644
+--- a/src/file/game/sarc/SarcFile.cpp
++++ b/src/file/game/sarc/SarcFile.cpp
+@@ -1,3 +1,9 @@
++#include <algorithm>
++#include <fstream>
++#include <iterator>
++#include <string>
++#include <vector>
++#include <cstdint>
+ #include "SarcFile.h"
+ 
+ #include <util/Logger.h>
+diff --git a/src/file/game/sarc/SarcFile.h b/src/file/game/sarc/SarcFile.h
+index a01ba23..09825e0 100644
+--- a/src/file/game/sarc/SarcFile.h
++++ b/src/file/game/sarc/SarcFile.h
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <cstdint>
+ 
+ #include <string>
+ #include <vector>
+diff --git a/src/file/game/terrain/HghtArchive.cpp b/src/file/game/terrain/HghtArchive.cpp
+index a529f9d..098c7c6 100644
+--- a/src/file/game/terrain/HghtArchive.cpp
++++ b/src/file/game/terrain/HghtArchive.cpp
+@@ -1,3 +1,6 @@
++#include <string>
++#include <vector>
++#include <cstdint>
+ #include "HghtArchive.h"
+ 
+ #include <file/game/zstd/ZStdBackend.h>
+diff --git a/src/file/game/terrain/HghtArchive.h b/src/file/game/terrain/HghtArchive.h
+index c7ced25..6679633 100644
+--- a/src/file/game/terrain/HghtArchive.h
++++ b/src/file/game/terrain/HghtArchive.h
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <cstdint>
+ 
+ #include <string>
+ #include <vector>
+diff --git a/src/file/game/terrain/HghtFile.cpp b/src/file/game/terrain/HghtFile.cpp
+index 036e4c0..771ee41 100644
+--- a/src/file/game/terrain/HghtFile.cpp
++++ b/src/file/game/terrain/HghtFile.cpp
+@@ -1,3 +1,5 @@
++#include <vector>
++#include <cstdint>
+ #include "HghtFile.h"
+ 
+ #include <util/FileUtil.h>
+diff --git a/src/file/game/terrain/HghtFile.h b/src/file/game/terrain/HghtFile.h
+index 150165f..ec18987 100644
+--- a/src/file/game/terrain/HghtFile.h
++++ b/src/file/game/terrain/HghtFile.h
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <cstdint>
+ 
+ #include <vector>
+ 
+diff --git a/src/file/game/terrain/MateArchive.cpp b/src/file/game/terrain/MateArchive.cpp
+index ee9ccb9..3164868 100644
+--- a/src/file/game/terrain/MateArchive.cpp
++++ b/src/file/game/terrain/MateArchive.cpp
+@@ -1,3 +1,5 @@
++#include <string>
++#include <vector>
+ #include "MateArchive.h"
+ 
+ #include <file/game/sarc/SarcFile.h>
+diff --git a/src/file/game/terrain/MateFile.cpp b/src/file/game/terrain/MateFile.cpp
+index 15a8466..1b0f20f 100644
+--- a/src/file/game/terrain/MateFile.cpp
++++ b/src/file/game/terrain/MateFile.cpp
+@@ -1,3 +1,6 @@
++#include <algorithm>
++#include <vector>
++#include <cstdint>
+ #include "MateFile.h"
+ 
+ #include <util/BinaryVectorReader.h>
+diff --git a/src/file/game/terrain/MateFile.h b/src/file/game/terrain/MateFile.h
+index 3d8d90d..50b9f14 100644
+--- a/src/file/game/terrain/MateFile.h
++++ b/src/file/game/terrain/MateFile.h
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <cstdint>
+ 
+ #include <vector>
+ #include <glm/vec4.hpp>
+diff --git a/src/file/game/terrain/TerrainSceneFile.cpp b/src/file/game/terrain/TerrainSceneFile.cpp
+index dfee55a..118bfb3 100644
+--- a/src/file/game/terrain/TerrainSceneFile.cpp
++++ b/src/file/game/terrain/TerrainSceneFile.cpp
+@@ -1,3 +1,7 @@
++#include <string>
++#include <variant>
++#include <vector>
++#include <cstdint>
+ #include "TerrainSceneFile.h"
+ 
+ #include <util/FileUtil.h>
+diff --git a/src/file/game/terrain/TerrainSceneFile.h b/src/file/game/terrain/TerrainSceneFile.h
+index 1c61527..ac5012c 100644
+--- a/src/file/game/terrain/TerrainSceneFile.h
++++ b/src/file/game/terrain/TerrainSceneFile.h
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <cstdint>
+ 
+ #include <vector>
+ #include <string>
+diff --git a/src/file/game/texture/FormatHelper.cpp b/src/file/game/texture/FormatHelper.cpp
+index 597dcd0..bbce657 100644
+--- a/src/file/game/texture/FormatHelper.cpp
++++ b/src/file/game/texture/FormatHelper.cpp
+@@ -1,3 +1,6 @@
++#include <string>
++#include <unordered_map>
++#include <cstdint>
+ #include "FormatHelper.h"
+ 
+ namespace application::file::game::texture
+diff --git a/src/file/game/texture/FormatHelper.h b/src/file/game/texture/FormatHelper.h
+index e107899..b0cd794 100644
+--- a/src/file/game/texture/FormatHelper.h
++++ b/src/file/game/texture/FormatHelper.h
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <cstdint>
+ 
+ #include <glad/glad.h>
+ #include <unordered_map>
+diff --git a/src/file/game/texture/TegraSwizzle.cpp b/src/file/game/texture/TegraSwizzle.cpp
+index 7f476f0..1a115dc 100644
+--- a/src/file/game/texture/TegraSwizzle.cpp
++++ b/src/file/game/texture/TegraSwizzle.cpp
+@@ -1,3 +1,7 @@
++#include <algorithm>
++#include <cstring>
++#include <vector>
++#include <cstdint>
+ #include "TegraSwizzle.h"
+ 
+ namespace application::file::game::texture
+diff --git a/src/file/game/texture/TegraSwizzle.h b/src/file/game/texture/TegraSwizzle.h
+index ce20391..4457dab 100644
+--- a/src/file/game/texture/TegraSwizzle.h
++++ b/src/file/game/texture/TegraSwizzle.h
+@@ -1,5 +1,8 @@
+ #pragma once
+ 
++#include <vector>
++#include <cstdint>
++
+ #include <cmath>
+ #include <file/game/texture/TexToGoFile.h>
+ #include <unordered_map>
+diff --git a/src/file/game/texture/TexToGoFile.cpp b/src/file/game/texture/TexToGoFile.cpp
+index 2a54641..1f141ad 100644
+--- a/src/file/game/texture/TexToGoFile.cpp
++++ b/src/file/game/texture/TexToGoFile.cpp
+@@ -1,3 +1,7 @@
++#include <string>
++#include <utility>
++#include <vector>
++#include <cstdint>
+ #include "TexToGoFile.h"
+ 
+ #include <util/BinaryVectorReader.h>
+diff --git a/src/file/game/texture/TextureFormat.cpp b/src/file/game/texture/TextureFormat.cpp
+index f2297d8..5785a89 100644
+--- a/src/file/game/texture/TextureFormat.cpp
++++ b/src/file/game/texture/TextureFormat.cpp
+@@ -1,3 +1,4 @@
++#include <cstdint>
+ #include "TextureFormat.h"
+ 
+ namespace application::file::game::texture
+diff --git a/src/file/game/texture/TextureFormat.h b/src/file/game/texture/TextureFormat.h
+index 4ba32b1..95c6a38 100644
+--- a/src/file/game/texture/TextureFormat.h
++++ b/src/file/game/texture/TextureFormat.h
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <cstdint>
+ 
+ #include <cinttypes>
+ 
+diff --git a/src/file/game/zstd/ZStdBackend.cpp b/src/file/game/zstd/ZStdBackend.cpp
+index 870dd1d..04b08e1 100644
+--- a/src/file/game/zstd/ZStdBackend.cpp
++++ b/src/file/game/zstd/ZStdBackend.cpp
+@@ -1,3 +1,6 @@
++#include <string>
++#include <vector>
++#include <cstdint>
+ #include "ZStdBackend.h"
+ 
+ #include <util/FileUtil.h>
+diff --git a/src/file/game/zstd/ZStdBackend.h b/src/file/game/zstd/ZStdBackend.h
+index 22975a5..ff2eb51 100644
+--- a/src/file/game/zstd/ZStdBackend.h
++++ b/src/file/game/zstd/ZStdBackend.h
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <cstdint>
+ 
+ #include <vector>
+ #include <string>
+diff --git a/src/file/tool/AdditionalAINBNodes.cpp b/src/file/tool/AdditionalAINBNodes.cpp
+index b0e5459..e6f62d7 100644
+--- a/src/file/tool/AdditionalAINBNodes.cpp
++++ b/src/file/tool/AdditionalAINBNodes.cpp
+@@ -1,3 +1,6 @@
++#include <string>
++#include <vector>
++#include <cstdint>
+ #include <file/tool/AdditionalAINBNodes.h>
+ 
+ #include <file/game/byml/BymlFile.h>
+diff --git a/src/file/tool/AdditionalAINBNodes.h b/src/file/tool/AdditionalAINBNodes.h
+index 346d2b7..6b6eaee 100644
+--- a/src/file/tool/AdditionalAINBNodes.h
++++ b/src/file/tool/AdditionalAINBNodes.h
+@@ -1,5 +1,7 @@
+ #pragma once
+ 
++#include <vector>
++
+ #include <manager/AINBNodeMgr.h>
+ #include <string>
+ 
+diff --git a/src/file/tool/GitIdentityFile.cpp b/src/file/tool/GitIdentityFile.cpp
+index cf49b21..0b049cd 100644
+--- a/src/file/tool/GitIdentityFile.cpp
++++ b/src/file/tool/GitIdentityFile.cpp
+@@ -1,3 +1,6 @@
++#include <cstring>
++#include <string>
++#include <cstdint>
+ #include "GitIdentityFile.h"
+ 
+ #include <util/FileUtil.h>
+diff --git a/src/file/tool/LicenseFile.cpp b/src/file/tool/LicenseFile.cpp
+index 0fe11e4..d39fcd0 100644
+--- a/src/file/tool/LicenseFile.cpp
++++ b/src/file/tool/LicenseFile.cpp
+@@ -1,3 +1,6 @@
++#include <cstring>
++#include <string>
++#include <cstdint>
+ #include "LicenseFile.h"
+ 
+ #include <util/Logger.h>
+diff --git a/src/file/tool/PathConfigFile.cpp b/src/file/tool/PathConfigFile.cpp
+index 20e6261..065767f 100644
+--- a/src/file/tool/PathConfigFile.cpp
++++ b/src/file/tool/PathConfigFile.cpp
+@@ -1,3 +1,6 @@
++#include <cstring>
++#include <string>
++#include <cstdint>
+ #include "PathConfigFile.h"
+ 
+ #include <util/FileUtil.h>
+diff --git a/src/file/tool/ProjectConfigFile.cpp b/src/file/tool/ProjectConfigFile.cpp
+index 1b3afb2..8e6f107 100644
+--- a/src/file/tool/ProjectConfigFile.cpp
++++ b/src/file/tool/ProjectConfigFile.cpp
+@@ -1,3 +1,7 @@
++#include <algorithm>
++#include <cstring>
++#include <string>
++#include <cstdint>
+ #include "ProjectConfigFile.h"
+ 
+ #include <util/FileUtil.h>
+diff --git a/src/forever_confidential/PhiveClassGenerator.cpp b/src/forever_confidential/PhiveClassGenerator.cpp
+index 8106645..802c328 100644
+--- a/src/forever_confidential/PhiveClassGenerator.cpp
++++ b/src/forever_confidential/PhiveClassGenerator.cpp
+@@ -1,3 +1,9 @@
++#include <iostream>
++#include <optional>
++#include <string>
++#include <unordered_map>
++#include <unordered_set>
++#include <vector>
+ #include "PhiveClassGenerator.h"
+ 
+ #include <fstream>
+diff --git a/src/forever_confidential/PhiveClassGenerator.h b/src/forever_confidential/PhiveClassGenerator.h
+index eef15b3..9270dea 100644
+--- a/src/forever_confidential/PhiveClassGenerator.h
++++ b/src/forever_confidential/PhiveClassGenerator.h
+@@ -1,5 +1,7 @@
+ #pragma once
+ 
++#include <vector>
++
+ #include <string>
+ #include <optional>
+ #include <unordered_map>
+diff --git a/src/game/ActorPack.cpp b/src/game/ActorPack.cpp
+index 3a54a9a..3bb5468 100644
+--- a/src/game/ActorPack.cpp
++++ b/src/game/ActorPack.cpp
+@@ -1,3 +1,8 @@
++#include <filesystem>
++#include <memory>
++#include <string>
++#include <utility>
++#include <vector>
+ #include "ActorPack.h"
+ 
+ #include <util/FileUtil.h>
+diff --git a/src/game/BancEntity.cpp b/src/game/BancEntity.cpp
+index d213436..241ed6d 100644
+--- a/src/game/BancEntity.cpp
++++ b/src/game/BancEntity.cpp
+@@ -1,3 +1,9 @@
++#include <map>
++#include <string>
++#include <utility>
++#include <variant>
++#include <vector>
++#include <cstdint>
+ #include "BancEntity.h"
+ 
+ #include <util/Math.h>
+diff --git a/src/game/BancEntity.h b/src/game/BancEntity.h
+index 86ea059..59283b9 100644
+--- a/src/game/BancEntity.h
++++ b/src/game/BancEntity.h
+@@ -1,5 +1,9 @@
+ #pragma once
+ 
++#include <map>
++#include <utility>
++#include <vector>
++
+ #include <cstdint>
+ #include <string>
+ #include <optional>
+diff --git a/src/game/Scene.cpp b/src/game/Scene.cpp
+index c979be6..bbde3d8 100644
+--- a/src/game/Scene.cpp
++++ b/src/game/Scene.cpp
+@@ -1,3 +1,13 @@
++#include <algorithm>
++#include <chrono>
++#include <filesystem>
++#include <functional>
++#include <memory>
++#include <optional>
++#include <string>
++#include <utility>
++#include <vector>
++#include <cstdint>
+ #include "Scene.h"
+ 
+ #include <unordered_set>
+diff --git a/src/game/Scene.h b/src/game/Scene.h
+index a982fe4..9a7c407 100644
+--- a/src/game/Scene.h
++++ b/src/game/Scene.h
+@@ -1,5 +1,9 @@
+ #pragma once
+ 
++#include <functional>
++#include <optional>
++#include <utility>
++
+ #include <cstdint>
+ #include <string>
+ #include <vector>
+diff --git a/src/game/actor_component/ActorComponentBase.h b/src/game/actor_component/ActorComponentBase.h
+index 882b823..937e830 100644
+--- a/src/game/actor_component/ActorComponentBase.h
++++ b/src/game/actor_component/ActorComponentBase.h
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <cstdint>
+ 
+ #include <string>
+ #include <file/game/sarc/SarcFile.h>
+diff --git a/src/game/actor_component/ActorComponentFactory.cpp b/src/game/actor_component/ActorComponentFactory.cpp
+index 56acaec..ffe6f50 100644
+--- a/src/game/actor_component/ActorComponentFactory.cpp
++++ b/src/game/actor_component/ActorComponentFactory.cpp
+@@ -1,3 +1,6 @@
++#include <functional>
++#include <memory>
++#include <unordered_map>
+ #include "ActorComponentFactory.h"
+ 
+ #include <game/actor_component/ActorComponentModelInfo.h>
+diff --git a/src/game/actor_component/ActorComponentFactory.h b/src/game/actor_component/ActorComponentFactory.h
+index 5154724..a6957df 100644
+--- a/src/game/actor_component/ActorComponentFactory.h
++++ b/src/game/actor_component/ActorComponentFactory.h
+@@ -1,5 +1,7 @@
+ #pragma once
+ 
++#include <unordered_map>
++
+ #include <game/actor_component/ActorComponentBase.h>
+ #include <game/ActorPack.h>
+ #include <memory>
+diff --git a/src/game/actor_component/ActorComponentModelInfo.cpp b/src/game/actor_component/ActorComponentModelInfo.cpp
+index 3e58a32..922562c 100644
+--- a/src/game/actor_component/ActorComponentModelInfo.cpp
++++ b/src/game/actor_component/ActorComponentModelInfo.cpp
+@@ -1,3 +1,4 @@
++#include <string>
+ #include "ActorComponentModelInfo.h"
+ 
+ #include <file/game/byml/BymlFile.h>
+diff --git a/src/game/actor_component/ActorComponentModelInfo.h b/src/game/actor_component/ActorComponentModelInfo.h
+index 3e8d3ee..32458cd 100644
+--- a/src/game/actor_component/ActorComponentModelInfo.h
++++ b/src/game/actor_component/ActorComponentModelInfo.h
+@@ -1,5 +1,7 @@
+ #pragma once
+ 
++#include <string>
++
+ #include <game/actor_component/ActorComponentBase.h>
+ #include <game/ActorPack.h>
+ #include <optional>
+diff --git a/src/game/actor_component/ActorComponentShapeParam.cpp b/src/game/actor_component/ActorComponentShapeParam.cpp
+index c2a8226..fb9676d 100644
+--- a/src/game/actor_component/ActorComponentShapeParam.cpp
++++ b/src/game/actor_component/ActorComponentShapeParam.cpp
+@@ -1,3 +1,6 @@
++#include <filesystem>
++#include <string>
++#include <vector>
+ #include "ActorComponentShapeParam.h"
+ 
+ #include <file/game/byml/BymlFile.h>
+diff --git a/src/game/actor_component/ActorComponentShapeParam.h b/src/game/actor_component/ActorComponentShapeParam.h
+index b6ea22a..403b6a3 100644
+--- a/src/game/actor_component/ActorComponentShapeParam.h
++++ b/src/game/actor_component/ActorComponentShapeParam.h
+@@ -1,5 +1,8 @@
+ #pragma once
+ 
++#include <string>
++#include <vector>
++
+ #include <game/actor_component/ActorComponentBase.h>
+ #include <game/ActorPack.h>
+ #include <optional>
+diff --git a/src/gl/BfresRenderer.cpp b/src/gl/BfresRenderer.cpp
+index 8dcf4f8..af9f656 100644
+--- a/src/gl/BfresRenderer.cpp
++++ b/src/gl/BfresRenderer.cpp
+@@ -1,3 +1,7 @@
++#include <string>
++#include <unordered_map>
++#include <vector>
++#include <cstdint>
+ #include "BfresRenderer.h"
+ 
+ #include <util/Logger.h>
+diff --git a/src/gl/BfresRenderer.h b/src/gl/BfresRenderer.h
+index 9703507..fe806fc 100644
+--- a/src/gl/BfresRenderer.h
++++ b/src/gl/BfresRenderer.h
+@@ -1,5 +1,10 @@
+ #pragma once
+ 
++#include <string>
++#include <utility>
++#include <vector>
++#include <cstdint>
++
+ #include <glad/glad.h>
+ #include <file/game/bfres/BfresFile.h>
+ #include <unordered_map>
+diff --git a/src/gl/BufferObject.cpp b/src/gl/BufferObject.cpp
+index d3e7ee4..b71b2ec 100644
+--- a/src/gl/BufferObject.cpp
++++ b/src/gl/BufferObject.cpp
+@@ -1,3 +1,5 @@
++#include <vector>
++#include <cstdint>
+ #include "BufferObject.h"
+ 
+ namespace application::gl
+diff --git a/src/gl/BufferObject.h b/src/gl/BufferObject.h
+index f20fa31..901dab3 100644
+--- a/src/gl/BufferObject.h
++++ b/src/gl/BufferObject.h
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <cstdint>
+ 
+ #include <glad/glad.h>
+ #include <vector>
+diff --git a/src/gl/CaveRenderer.cpp b/src/gl/CaveRenderer.cpp
+index dc3e682..476649f 100644
+--- a/src/gl/CaveRenderer.cpp
++++ b/src/gl/CaveRenderer.cpp
+@@ -1,3 +1,5 @@
++#include <vector>
++#include <cstdint>
+ #include "CaveRenderer.h"
+ 
+ #include <glad/glad.h>
+diff --git a/src/gl/CaveRenderer.h b/src/gl/CaveRenderer.h
+index b5ca670..3ed4b6b 100644
+--- a/src/gl/CaveRenderer.h
++++ b/src/gl/CaveRenderer.h
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <cstdint>
+ 
+ #include <vector>
+ #include <gl/Shader.h>
+diff --git a/src/gl/Shader.cpp b/src/gl/Shader.cpp
+index 6bb8f67..2843d66 100644
+--- a/src/gl/Shader.cpp
++++ b/src/gl/Shader.cpp
+@@ -1,3 +1,4 @@
++#include <cstring>
+ #include "Shader.h"
+ 
+ #include <string>
+diff --git a/src/gl/SimpleMesh.cpp b/src/gl/SimpleMesh.cpp
+index c629b72..75b5abc 100644
+--- a/src/gl/SimpleMesh.cpp
++++ b/src/gl/SimpleMesh.cpp
+@@ -1,3 +1,4 @@
++#include <vector>
+ #include "SimpleMesh.h"
+ 
+ namespace application::gl
+diff --git a/src/gl/SimpleMesh.h b/src/gl/SimpleMesh.h
+index 3baf184..d85fc76 100644
+--- a/src/gl/SimpleMesh.h
++++ b/src/gl/SimpleMesh.h
+@@ -1,5 +1,8 @@
+ #pragma once
+ 
++#include <vector>
++#include <cstdint>
++
+ #include <string>
+ #include <glm/glm.hpp>
+ #include <gl/BufferObject.h>
+diff --git a/src/gl/TerrainRenderer.cpp b/src/gl/TerrainRenderer.cpp
+index 15f6fc8..00ed515 100644
+--- a/src/gl/TerrainRenderer.cpp
++++ b/src/gl/TerrainRenderer.cpp
+@@ -1,3 +1,10 @@
++#include <iostream>
++#include <string>
++#include <unordered_map>
++#include <unordered_set>
++#include <utility>
++#include <vector>
++#include <cstdint>
+ #include <gl/TerrainRenderer.h>
+ 
+ #include <glad/glad.h>
+diff --git a/src/gl/TerrainRenderer.h b/src/gl/TerrainRenderer.h
+index 5ff60ae..ddea1e3 100644
+--- a/src/gl/TerrainRenderer.h
++++ b/src/gl/TerrainRenderer.h
+@@ -1,5 +1,10 @@
+ #pragma once
+ 
++#include <string>
++#include <unordered_map>
++#include <utility>
++#include <cstdint>
++
+ #include <vector>
+ #include <gl/Camera.h>
+ #include <gl/Shader.h>
+diff --git a/src/gl/Texture.cpp b/src/gl/Texture.cpp
+index f1095fc..47917b2 100644
+--- a/src/gl/Texture.cpp
++++ b/src/gl/Texture.cpp
+@@ -1,3 +1,5 @@
++#include <string>
++#include <vector>
+ #include "Texture.h"
+ 
+ #include <stb/stb_image.h>
+diff --git a/src/gl/VertexArrayObject.cpp b/src/gl/VertexArrayObject.cpp
+index ddbd5e3..8403e56 100644
+--- a/src/gl/VertexArrayObject.cpp
++++ b/src/gl/VertexArrayObject.cpp
+@@ -1,3 +1,5 @@
++#include <vector>
++#include <cstdint>
+ #include "VertexArrayObject.h"
+ 
+ #include <util/Logger.h>
+diff --git a/src/gl/VertexArrayObject.h b/src/gl/VertexArrayObject.h
+index 75254d6..6d82701 100644
+--- a/src/gl/VertexArrayObject.h
++++ b/src/gl/VertexArrayObject.h
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <cstdint>
+ 
+ #include <vector>
+ #include <gl/BufferObject.h>
+diff --git a/src/manager/AINBNodeMgr.cpp b/src/manager/AINBNodeMgr.cpp
+index 36dc858..d27027a 100644
+--- a/src/manager/AINBNodeMgr.cpp
++++ b/src/manager/AINBNodeMgr.cpp
+@@ -1,3 +1,11 @@
++#include <algorithm>
++#include <functional>
++#include <iterator>
++#include <string>
++#include <unordered_map>
++#include <utility>
++#include <vector>
++#include <cstdint>
+ #include "AINBNodeMgr.h"
+ 
+ #include "imgui.h"
+diff --git a/src/manager/AINBNodeMgr.h b/src/manager/AINBNodeMgr.h
+index f928bef..5b00e43 100644
+--- a/src/manager/AINBNodeMgr.h
++++ b/src/manager/AINBNodeMgr.h
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <cstdint>
+ 
+ #include <vector>
+ #include <utility>
+diff --git a/src/manager/ActorInfoMgr.cpp b/src/manager/ActorInfoMgr.cpp
+index 3102e46..1b08b9d 100644
+--- a/src/manager/ActorInfoMgr.cpp
++++ b/src/manager/ActorInfoMgr.cpp
+@@ -1,3 +1,9 @@
++#include <iterator>
++#include <string>
++#include <unordered_map>
++#include <utility>
++#include <vector>
++#include <cstdint>
+ #include "ActorInfoMgr.h"
+ 
+ #include <util/FileUtil.h>
+diff --git a/src/manager/ActorInfoMgr.h b/src/manager/ActorInfoMgr.h
+index f28acb5..522beb1 100644
+--- a/src/manager/ActorInfoMgr.h
++++ b/src/manager/ActorInfoMgr.h
+@@ -1,5 +1,8 @@
+ #pragma once
+ 
++#include <string>
++#include <cstdint>
++
+ #include <file/game/byml/BymlFile.h>
+ #include <optional>
+ #include <unordered_map>
+diff --git a/src/manager/ActorPackMgr.cpp b/src/manager/ActorPackMgr.cpp
+index da38f85..8d8f329 100644
+--- a/src/manager/ActorPackMgr.cpp
++++ b/src/manager/ActorPackMgr.cpp
+@@ -1,3 +1,8 @@
++#include <algorithm>
++#include <filesystem>
++#include <string>
++#include <unordered_map>
++#include <vector>
+ #include "ActorPackMgr.h"
+ 
+ #include <util/FileUtil.h>
+diff --git a/src/manager/ActorPackMgr.h b/src/manager/ActorPackMgr.h
+index 8309a6e..25792dd 100644
+--- a/src/manager/ActorPackMgr.h
++++ b/src/manager/ActorPackMgr.h
+@@ -1,5 +1,7 @@
+ #pragma once
+ 
++#include <vector>
++
+ #include <string>
+ #include <unordered_map>
+ #include <game/ActorPack.h>
+diff --git a/src/manager/BfresFileMgr.cpp b/src/manager/BfresFileMgr.cpp
+index 3e88cdb..d4eaf36 100644
+--- a/src/manager/BfresFileMgr.cpp
++++ b/src/manager/BfresFileMgr.cpp
+@@ -1,3 +1,5 @@
++#include <string>
++#include <unordered_map>
+ #include "BfresFileMgr.h"
+ 
+ namespace application::manager
+diff --git a/src/manager/BfresRendererMgr.cpp b/src/manager/BfresRendererMgr.cpp
+index 7be8fa1..eef0d16 100644
+--- a/src/manager/BfresRendererMgr.cpp
++++ b/src/manager/BfresRendererMgr.cpp
+@@ -1,3 +1,4 @@
++#include <unordered_map>
+ #include "BfresRendererMgr.h"
+ 
+ #include <util/Logger.h>
+diff --git a/src/manager/CaveMgr.cpp b/src/manager/CaveMgr.cpp
+index ad12875..18c82f8 100644
+--- a/src/manager/CaveMgr.cpp
++++ b/src/manager/CaveMgr.cpp
+@@ -1,3 +1,5 @@
++#include <string>
++#include <unordered_map>
+ #include "CaveMgr.h"
+ 
+ #include <util/FileUtil.h>
+diff --git a/src/manager/FramebufferMgr.cpp b/src/manager/FramebufferMgr.cpp
+index 3b168fb..171e4a5 100644
+--- a/src/manager/FramebufferMgr.cpp
++++ b/src/manager/FramebufferMgr.cpp
+@@ -1,3 +1,5 @@
++#include <string>
++#include <unordered_map>
+ #include "FramebufferMgr.h"
+ 
+ namespace application::manager
+diff --git a/src/manager/GameDataListMgr.cpp b/src/manager/GameDataListMgr.cpp
+index 3d66fea..ef6e4ec 100644
+--- a/src/manager/GameDataListMgr.cpp
++++ b/src/manager/GameDataListMgr.cpp
+@@ -1,3 +1,8 @@
++#include <filesystem>
++#include <map>
++#include <string>
++#include <unordered_map>
++#include <cstdint>
+ #include <manager/GameDataListMgr.h>
+ 
+ #include <util/FileUtil.h>
+diff --git a/src/manager/GameDataListMgr.h b/src/manager/GameDataListMgr.h
+index 419f4e6..2287934 100644
+--- a/src/manager/GameDataListMgr.h
++++ b/src/manager/GameDataListMgr.h
+@@ -1,5 +1,7 @@
+ #pragma once
+ 
++#include <unordered_map>
++
+ #include <cstdint>
+ #include <file/game/byml/BymlFile.h>
+ #include <game/Scene.h>
+diff --git a/src/manager/MergedActorMgr.cpp b/src/manager/MergedActorMgr.cpp
+index 208b7a1..e57a34b 100644
+--- a/src/manager/MergedActorMgr.cpp
++++ b/src/manager/MergedActorMgr.cpp
+@@ -1,3 +1,7 @@
++#include <filesystem>
++#include <string>
++#include <unordered_map>
++#include <vector>
+ #include "MergedActorMgr.h"
+ 
+ #include <file/game/byml/BymlFile.h>
+diff --git a/src/manager/PluginMgr.cpp b/src/manager/PluginMgr.cpp
+index 454e57e..4748975 100644
+--- a/src/manager/PluginMgr.cpp
++++ b/src/manager/PluginMgr.cpp
+@@ -1,3 +1,8 @@
++#include <algorithm>
++#include <memory>
++#include <string>
++#include <utility>
++#include <vector>
+ #include <manager/PluginMgr.h>
+ 
+ #include <plugin/impl/PluginTerrainModificationUtil.h>
+diff --git a/src/manager/PluginMgr.h b/src/manager/PluginMgr.h
+index 25856f4..4edec31 100644
+--- a/src/manager/PluginMgr.h
++++ b/src/manager/PluginMgr.h
+@@ -1,5 +1,7 @@
+ #pragma once
+ 
++#include <string>
++
+ #include <vector>
+ #include <memory>
+ 
+diff --git a/src/manager/PopUpMgr.cpp b/src/manager/PopUpMgr.cpp
+index 552ec9c..d7ebd89 100644
+--- a/src/manager/PopUpMgr.cpp
++++ b/src/manager/PopUpMgr.cpp
+@@ -1,3 +1,5 @@
++#include <algorithm>
++#include <vector>
+ #include "PopUpMgr.h"
+ 
+ #include <util/Logger.h>
+diff --git a/src/manager/ProjectMgr.cpp b/src/manager/ProjectMgr.cpp
+index 4959102..2b85d44 100644
+--- a/src/manager/ProjectMgr.cpp
++++ b/src/manager/ProjectMgr.cpp
+@@ -1,3 +1,7 @@
++#include <algorithm>
++#include <functional>
++#include <string>
++#include <vector>
+ #include "ProjectMgr.h"
+ 
+ #include <util/FileUtil.h>
+diff --git a/src/manager/ShaderMgr.cpp b/src/manager/ShaderMgr.cpp
+index 90d6ad4..a3907f2 100644
+--- a/src/manager/ShaderMgr.cpp
++++ b/src/manager/ShaderMgr.cpp
+@@ -1,3 +1,5 @@
++#include <string>
++#include <unordered_map>
+ #include "ShaderMgr.h"
+ 
+ #include <util/Logger.h>
+diff --git a/src/manager/TerrainMgr.cpp b/src/manager/TerrainMgr.cpp
+index ea145f3..253d4c7 100644
+--- a/src/manager/TerrainMgr.cpp
++++ b/src/manager/TerrainMgr.cpp
+@@ -1,3 +1,7 @@
++#include <cmath>
++#include <string>
++#include <unordered_map>
++#include <cstdint>
+ #include <manager/TerrainMgr.h>
+ 
+ #include <util/FileUtil.h>
+diff --git a/src/manager/TexToGoFileMgr.cpp b/src/manager/TexToGoFileMgr.cpp
+index 7899485..935ce31 100644
+--- a/src/manager/TexToGoFileMgr.cpp
++++ b/src/manager/TexToGoFileMgr.cpp
+@@ -1,3 +1,5 @@
++#include <string>
++#include <unordered_map>
+ #include "TexToGoFileMgr.h"
+ 
+ #include <util/FileUtil.h>
+diff --git a/src/manager/TexToGoFileMgr.h b/src/manager/TexToGoFileMgr.h
+index ddcd30d..ae41613 100644
+--- a/src/manager/TexToGoFileMgr.h
++++ b/src/manager/TexToGoFileMgr.h
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <cstdint>
+ 
+ #include <unordered_map>
+ #include <string>
+diff --git a/src/manager/TextureMgr.cpp b/src/manager/TextureMgr.cpp
+index 73e6a4c..149faf3 100644
+--- a/src/manager/TextureMgr.cpp
++++ b/src/manager/TextureMgr.cpp
+@@ -1,3 +1,5 @@
++#include <string>
++#include <unordered_map>
+ #include "TextureMgr.h"
+ 
+ #include <util/Logger.h>
+diff --git a/src/manager/UIMgr.cpp b/src/manager/UIMgr.cpp
+index 5f3022a..68def42 100644
+--- a/src/manager/UIMgr.cpp
++++ b/src/manager/UIMgr.cpp
+@@ -1,3 +1,8 @@
++#include <iostream>
++#include <memory>
++#include <string>
++#include <utility>
++#include <vector>
+ #include "UIMgr.h"
+ 
+ #include "imgui_impl_glfw.h"
+diff --git a/src/play/GLDebugDrawer.h b/src/play/GLDebugDrawer.h
+index e77e383..6cecbc5 100644
+--- a/src/play/GLDebugDrawer.h
++++ b/src/play/GLDebugDrawer.h
+@@ -1,5 +1,7 @@
+ #pragma once
+ 
++#include <utility>
++
+ #include <btBulletDynamicsCommon.h>
+ #include <glm/glm.hpp>
+ #include <vector>
+diff --git a/src/play/PlaySession.cpp b/src/play/PlaySession.cpp
+index 494acf9..971e3be 100644
+--- a/src/play/PlaySession.cpp
++++ b/src/play/PlaySession.cpp
+@@ -1,3 +1,10 @@
++#include <mutex>
++#include <optional>
++#include <string>
++#include <thread>
++#include <utility>
++#include <vector>
++#include <cstdint>
+ #include <play/PlaySession.h>
+ 
+ #include "imgui.h"
+diff --git a/src/play/PlaySession.h b/src/play/PlaySession.h
+index 73e3a10..dc5ee1d 100644
+--- a/src/play/PlaySession.h
++++ b/src/play/PlaySession.h
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <cstdint>
+ 
+ #include <game/Scene.h>
+ #include <gl/Camera.h>
+diff --git a/src/plugin/impl/PluginFieldCleaner.cpp b/src/plugin/impl/PluginFieldCleaner.cpp
+index 5abb4bc..d2ff24e 100644
+--- a/src/plugin/impl/PluginFieldCleaner.cpp
++++ b/src/plugin/impl/PluginFieldCleaner.cpp
+@@ -1,3 +1,5 @@
++#include <string>
++#include <cstdint>
+ #include <plugin/impl/PluginFieldCleaner.h>
+ 
+ #include <rendering/mapeditor/TerrainEditor.h>
+diff --git a/src/plugin/impl/PluginFieldCleaner.h b/src/plugin/impl/PluginFieldCleaner.h
+index ae9b833..8899f80 100644
+--- a/src/plugin/impl/PluginFieldCleaner.h
++++ b/src/plugin/impl/PluginFieldCleaner.h
+@@ -1,5 +1,8 @@
+ #pragma once
+ 
++#include <string>
++#include <cstdint>
++
+ #include <plugin/PluginBase.h>
+ 
+ namespace application::plugin::impl
+diff --git a/src/plugin/impl/PluginTerrainModificationUtil.cpp b/src/plugin/impl/PluginTerrainModificationUtil.cpp
+index 0e9d409..ef35b6d 100644
+--- a/src/plugin/impl/PluginTerrainModificationUtil.cpp
++++ b/src/plugin/impl/PluginTerrainModificationUtil.cpp
+@@ -1,3 +1,7 @@
++#include <algorithm>
++#include <string>
++#include <vector>
++#include <cstdint>
+ #include <plugin/impl/PluginTerrainModificationUtil.h>
+ 
+ #include <rendering/mapeditor/TerrainEditor.h>
+diff --git a/src/plugin/impl/PluginTerrainModificationUtil.h b/src/plugin/impl/PluginTerrainModificationUtil.h
+index 2a39209..cd1ffb3 100644
+--- a/src/plugin/impl/PluginTerrainModificationUtil.h
++++ b/src/plugin/impl/PluginTerrainModificationUtil.h
+@@ -1,5 +1,8 @@
+ #pragma once
+ 
++#include <string>
++#include <cstdint>
++
+ #include <plugin/PluginBase.h>
+ 
+ namespace application::plugin::impl
+diff --git a/src/rendering/ImGuiExt.cpp b/src/rendering/ImGuiExt.cpp
+index 74d6890..441c4b4 100644
+--- a/src/rendering/ImGuiExt.cpp
++++ b/src/rendering/ImGuiExt.cpp
+@@ -1,3 +1,10 @@
++#include <algorithm>
++#include <cmath>
++#include <functional>
++#include <optional>
++#include <unordered_map>
++#include <vector>
++#include <cstdint>
+ #include "ImGuiExt.h"
+ 
+ #include "imgui_internal.h"
+diff --git a/src/rendering/ImGuiExt.h b/src/rendering/ImGuiExt.h
+index c9b3ae8..b34a270 100644
+--- a/src/rendering/ImGuiExt.h
++++ b/src/rendering/ImGuiExt.h
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <cstdint>
+ 
+ #include "imgui.h"
+ #include <functional>
+diff --git a/src/rendering/ImGuizmo.cpp b/src/rendering/ImGuizmo.cpp
+index a991655..ea1ab6f 100644
+--- a/src/rendering/ImGuizmo.cpp
++++ b/src/rendering/ImGuizmo.cpp
+@@ -1,3 +1,4 @@
++#include <cstring>
+ // https://github.com/CedricGuillemet/ImGuizmo
+ // v1.91.3 WIP
+ //
+diff --git a/src/rendering/UIWindowBase.cpp b/src/rendering/UIWindowBase.cpp
+index e234b6a..1d83567 100644
+--- a/src/rendering/UIWindowBase.cpp
++++ b/src/rendering/UIWindowBase.cpp
+@@ -1,3 +1,4 @@
++#include <string>
+ #include "UIWindowBase.h"
+ 
+ #include <manager/UIMgr.h>
+diff --git a/src/rendering/UIWindowBase.h b/src/rendering/UIWindowBase.h
+index 14ba93e..428ba4d 100644
+--- a/src/rendering/UIWindowBase.h
++++ b/src/rendering/UIWindowBase.h
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <cstdint>
+ 
+ #include <string>
+ 
+diff --git a/src/rendering/actor/UIActorTool.h b/src/rendering/actor/UIActorTool.h
+index a5ee835..cfd9909 100644
+--- a/src/rendering/actor/UIActorTool.h
++++ b/src/rendering/actor/UIActorTool.h
+@@ -1,5 +1,9 @@
+ #pragma once
+ 
++#include <string>
++#include <utility>
++#include <vector>
++
+ #include <rendering/UIWindowBase.h>
+ #include <manager/ActorInfoMgr.h>
+ #include <optional>
+diff --git a/src/rendering/ainb/UIAINBEditor.cpp b/src/rendering/ainb/UIAINBEditor.cpp
+index 50f527a..de548ba 100644
+--- a/src/rendering/ainb/UIAINBEditor.cpp
++++ b/src/rendering/ainb/UIAINBEditor.cpp
+@@ -1,3 +1,10 @@
++#include <cmath>
++#include <iterator>
++#include <memory>
++#include <set>
++#include <string>
++#include <vector>
++#include <cstdint>
+ #include "UIAINBEditor.h"
+ 
+ #include <util/Logger.h>
+diff --git a/src/rendering/ainb/UIAINBEditor.h b/src/rendering/ainb/UIAINBEditor.h
+index e5f8cd7..175ece2 100644
+--- a/src/rendering/ainb/UIAINBEditor.h
++++ b/src/rendering/ainb/UIAINBEditor.h
+@@ -1,5 +1,10 @@
+ #pragma once
+ 
++#include <memory>
++#include <unordered_map>
++#include <variant>
++#include <cstdint>
++
+ #include <glad/glad.h>
+ #include <rendering/UIWindowBase.h>
+ #include <manager/TextureMgr.h>
+diff --git a/src/rendering/ainb/UIAINBEditorNodeBase.cpp b/src/rendering/ainb/UIAINBEditorNodeBase.cpp
+index abf672c..6e6eb1a 100644
+--- a/src/rendering/ainb/UIAINBEditorNodeBase.cpp
++++ b/src/rendering/ainb/UIAINBEditorNodeBase.cpp
+@@ -1,3 +1,6 @@
++#include <algorithm>
++#include <string>
++#include <cstdint>
+ #include "UIAINBEditorNodeBase.h"
+ 
+ #include <rendering/ainb/UIAINBEditor.h>
+diff --git a/src/rendering/ainb/UIAINBEditorNodeBase.h b/src/rendering/ainb/UIAINBEditorNodeBase.h
+index c703257..4917e4c 100644
+--- a/src/rendering/ainb/UIAINBEditorNodeBase.h
++++ b/src/rendering/ainb/UIAINBEditorNodeBase.h
+@@ -1,5 +1,9 @@
+ #pragma once
+ 
++#include <memory>
++#include <vector>
++#include <cstdint>
++
+ #include "imgui_node_editor.h"
+ #include "imgui_internal.h"
+ #include <file/game/ainb/AINBFile.h>
+diff --git a/src/rendering/ainb/nodes/UIAINBEditorNodeBoolSelector.cpp b/src/rendering/ainb/nodes/UIAINBEditorNodeBoolSelector.cpp
+index 0ea041a..9f2e795 100644
+--- a/src/rendering/ainb/nodes/UIAINBEditorNodeBoolSelector.cpp
++++ b/src/rendering/ainb/nodes/UIAINBEditorNodeBoolSelector.cpp
+@@ -1,3 +1,6 @@
++#include <memory>
++#include <vector>
++#include <cstdint>
+ #include "UIAINBEditorNodeBoolSelector.h"
+ 
+ #include <util/Logger.h>
+diff --git a/src/rendering/ainb/nodes/UIAINBEditorNodeBoolSelector.h b/src/rendering/ainb/nodes/UIAINBEditorNodeBoolSelector.h
+index 0221fbb..0dcd5f4 100644
+--- a/src/rendering/ainb/nodes/UIAINBEditorNodeBoolSelector.h
++++ b/src/rendering/ainb/nodes/UIAINBEditorNodeBoolSelector.h
+@@ -1,5 +1,8 @@
+ #pragma once
+ 
++#include <memory>
++#include <vector>
++
+ #include <rendering/ainb/UIAINBEditorNodeBase.h>
+ 
+ namespace application::rendering::ainb::nodes
+diff --git a/src/rendering/ainb/nodes/UIAINBEditorNodeDefault.cpp b/src/rendering/ainb/nodes/UIAINBEditorNodeDefault.cpp
+index 1ecc7e3..5cb849d 100644
+--- a/src/rendering/ainb/nodes/UIAINBEditorNodeDefault.cpp
++++ b/src/rendering/ainb/nodes/UIAINBEditorNodeDefault.cpp
+@@ -1,3 +1,7 @@
++#include <memory>
++#include <string>
++#include <vector>
++#include <cstdint>
+ #include "UIAINBEditorNodeDefault.h"
+ 
+ #include <util/Logger.h>
+diff --git a/src/rendering/ainb/nodes/UIAINBEditorNodeDefault.h b/src/rendering/ainb/nodes/UIAINBEditorNodeDefault.h
+index 5fbb759..a4dfd35 100644
+--- a/src/rendering/ainb/nodes/UIAINBEditorNodeDefault.h
++++ b/src/rendering/ainb/nodes/UIAINBEditorNodeDefault.h
+@@ -1,5 +1,7 @@
+ #pragma once
+ 
++#include <memory>
++
+ #include <rendering/ainb/UIAINBEditorNodeBase.h>
+ #include <vector>
+ #include <string>
+diff --git a/src/rendering/ainb/nodes/UIAINBEditorNodeF32Selector.cpp b/src/rendering/ainb/nodes/UIAINBEditorNodeF32Selector.cpp
+index f1dd92a..5b2ba05 100644
+--- a/src/rendering/ainb/nodes/UIAINBEditorNodeF32Selector.cpp
++++ b/src/rendering/ainb/nodes/UIAINBEditorNodeF32Selector.cpp
+@@ -1,3 +1,7 @@
++#include <memory>
++#include <string>
++#include <vector>
++#include <cstdint>
+ #include "UIAINBEditorNodeF32Selector.h"
+ 
+ #include <util/Logger.h>
+diff --git a/src/rendering/ainb/nodes/UIAINBEditorNodeF32Selector.h b/src/rendering/ainb/nodes/UIAINBEditorNodeF32Selector.h
+index a9b3f21..00a6dae 100644
+--- a/src/rendering/ainb/nodes/UIAINBEditorNodeF32Selector.h
++++ b/src/rendering/ainb/nodes/UIAINBEditorNodeF32Selector.h
+@@ -1,5 +1,7 @@
+ #pragma once
+ 
++#include <memory>
++
+ #include <rendering/ainb/UIAINBEditorNodeBase.h>
+ #include <rendering/popup/PopUpBuilder.h>
+ #include <vector>
+diff --git a/src/rendering/ainb/nodes/UIAINBEditorNodeS32Selector.cpp b/src/rendering/ainb/nodes/UIAINBEditorNodeS32Selector.cpp
+index 843d3bd..828283c 100644
+--- a/src/rendering/ainb/nodes/UIAINBEditorNodeS32Selector.cpp
++++ b/src/rendering/ainb/nodes/UIAINBEditorNodeS32Selector.cpp
+@@ -1,3 +1,7 @@
++#include <memory>
++#include <string>
++#include <vector>
++#include <cstdint>
+ #include "UIAINBEditorNodeS32Selector.h"
+ 
+ #include <util/Logger.h>
+diff --git a/src/rendering/ainb/nodes/UIAINBEditorNodeS32Selector.h b/src/rendering/ainb/nodes/UIAINBEditorNodeS32Selector.h
+index c7a2309..0cbe67d 100644
+--- a/src/rendering/ainb/nodes/UIAINBEditorNodeS32Selector.h
++++ b/src/rendering/ainb/nodes/UIAINBEditorNodeS32Selector.h
+@@ -1,5 +1,8 @@
+ #pragma once
+ 
++#include <memory>
++#include <cstdint>
++
+ #include <rendering/ainb/UIAINBEditorNodeBase.h>
+ #include <rendering/popup/PopUpBuilder.h>
+ #include <vector>
+diff --git a/src/rendering/ainb/nodes/UIAINBEditorNodeSequential.cpp b/src/rendering/ainb/nodes/UIAINBEditorNodeSequential.cpp
+index d93d7a3..1c93324 100644
+--- a/src/rendering/ainb/nodes/UIAINBEditorNodeSequential.cpp
++++ b/src/rendering/ainb/nodes/UIAINBEditorNodeSequential.cpp
+@@ -1,3 +1,8 @@
++#include <algorithm>
++#include <memory>
++#include <string>
++#include <vector>
++#include <cstdint>
+ #include "UIAINBEditorNodeSequential.h"
+ 
+ #include <util/Logger.h>
+diff --git a/src/rendering/ainb/nodes/UIAINBEditorNodeSequential.h b/src/rendering/ainb/nodes/UIAINBEditorNodeSequential.h
+index 58d7f37..0f481ec 100644
+--- a/src/rendering/ainb/nodes/UIAINBEditorNodeSequential.h
++++ b/src/rendering/ainb/nodes/UIAINBEditorNodeSequential.h
+@@ -1,5 +1,9 @@
+ #pragma once
+ 
++#include <memory>
++#include <vector>
++#include <cstdint>
++
+ #include <rendering/ainb/UIAINBEditorNodeBase.h>
+ 
+ namespace application::rendering::ainb::nodes
+diff --git a/src/rendering/ainb/nodes/UIAINBEditorNodeSimultaneous.cpp b/src/rendering/ainb/nodes/UIAINBEditorNodeSimultaneous.cpp
+index 33e8db5..6c2b6cd 100644
+--- a/src/rendering/ainb/nodes/UIAINBEditorNodeSimultaneous.cpp
++++ b/src/rendering/ainb/nodes/UIAINBEditorNodeSimultaneous.cpp
+@@ -1,3 +1,6 @@
++#include <memory>
++#include <vector>
++#include <cstdint>
+ #include "UIAINBEditorNodeSimultaneous.h"
+ 
+ #include <util/Logger.h>
+diff --git a/src/rendering/ainb/nodes/UIAINBEditorNodeSimultaneous.h b/src/rendering/ainb/nodes/UIAINBEditorNodeSimultaneous.h
+index 64671e9..25d8206 100644
+--- a/src/rendering/ainb/nodes/UIAINBEditorNodeSimultaneous.h
++++ b/src/rendering/ainb/nodes/UIAINBEditorNodeSimultaneous.h
+@@ -1,5 +1,8 @@
+ #pragma once
+ 
++#include <memory>
++#include <vector>
++
+ #include <rendering/ainb/UIAINBEditorNodeBase.h>
+ 
+ namespace application::rendering::ainb::nodes
+diff --git a/src/rendering/ainb/nodes/UIAINBEditorNodeSplitTiming.cpp b/src/rendering/ainb/nodes/UIAINBEditorNodeSplitTiming.cpp
+index 0ec660e..e8bd527 100644
+--- a/src/rendering/ainb/nodes/UIAINBEditorNodeSplitTiming.cpp
++++ b/src/rendering/ainb/nodes/UIAINBEditorNodeSplitTiming.cpp
+@@ -1,3 +1,6 @@
++#include <memory>
++#include <vector>
++#include <cstdint>
+ #include "UIAINBEditorNodeSplitTiming.h"
+ 
+ #include <util/Logger.h>
+diff --git a/src/rendering/ainb/nodes/UIAINBEditorNodeSplitTiming.h b/src/rendering/ainb/nodes/UIAINBEditorNodeSplitTiming.h
+index 69e703c..f41791e 100644
+--- a/src/rendering/ainb/nodes/UIAINBEditorNodeSplitTiming.h
++++ b/src/rendering/ainb/nodes/UIAINBEditorNodeSplitTiming.h
+@@ -1,5 +1,8 @@
+ #pragma once
+ 
++#include <memory>
++#include <vector>
++
+ #include <rendering/ainb/UIAINBEditorNodeBase.h>
+ 
+ namespace application::rendering::ainb::nodes
+diff --git a/src/rendering/collision/UICollisionGenerator.cpp b/src/rendering/collision/UICollisionGenerator.cpp
+index 737637b..4b1be68 100644
+--- a/src/rendering/collision/UICollisionGenerator.cpp
++++ b/src/rendering/collision/UICollisionGenerator.cpp
+@@ -1,3 +1,10 @@
++#include <algorithm>
++#include <filesystem>
++#include <iterator>
++#include <string>
++#include <utility>
++#include <vector>
++#include <cstdint>
+ #include "UICollisionGenerator.h"
+ 
+ #include "imgui_internal.h"
+diff --git a/src/rendering/collision/UICollisionGenerator.h b/src/rendering/collision/UICollisionGenerator.h
+index 4837b26..f55fb94 100644
+--- a/src/rendering/collision/UICollisionGenerator.h
++++ b/src/rendering/collision/UICollisionGenerator.h
+@@ -1,5 +1,9 @@
+ #pragma once
+ 
++#include <string>
++#include <vector>
++#include <cstdint>
++
+ #include <rendering/UIWindowBase.h>
+ #include <file/game/bfres/BfresFile.h>
+ #include <file/game/phive/shape/PhiveShape.h>
+diff --git a/src/rendering/general/UIContentBrowser.cpp b/src/rendering/general/UIContentBrowser.cpp
+index c5cfe3a..b04b75a 100644
+--- a/src/rendering/general/UIContentBrowser.cpp
++++ b/src/rendering/general/UIContentBrowser.cpp
+@@ -1,3 +1,4 @@
++#include <string>
+ #include "UIContentBrowser.h"
+ 
+ #include "imgui.h"
+diff --git a/src/rendering/mapeditor/ActorPainter.cpp b/src/rendering/mapeditor/ActorPainter.cpp
+index 15665ff..a990871 100644
+--- a/src/rendering/mapeditor/ActorPainter.cpp
++++ b/src/rendering/mapeditor/ActorPainter.cpp
+@@ -1,3 +1,11 @@
++#include <chrono>
++#include <cmath>
++#include <limits>
++#include <optional>
++#include <string>
++#include <utility>
++#include <vector>
++#include <cstdint>
+ #include "ActorPainter.h"
+ 
+ #include <rendering/mapeditor/UIMapEditor.h>
+diff --git a/src/rendering/mapeditor/ActorPainter.h b/src/rendering/mapeditor/ActorPainter.h
+index ec543e8..ad0f917 100644
+--- a/src/rendering/mapeditor/ActorPainter.h
++++ b/src/rendering/mapeditor/ActorPainter.h
+@@ -1,5 +1,8 @@
+ #pragma once
+ 
++#include <string>
++#include <cstdint>
++
+ #include "imgui.h"
+ #include <game/BancEntity.h>
+ #include <vector>
+diff --git a/src/rendering/mapeditor/TerrainEditor.cpp b/src/rendering/mapeditor/TerrainEditor.cpp
+index 3ca401c..b54c430 100644
+--- a/src/rendering/mapeditor/TerrainEditor.cpp
++++ b/src/rendering/mapeditor/TerrainEditor.cpp
+@@ -1,3 +1,8 @@
++#include <limits>
++#include <string>
++#include <utility>
++#include <vector>
++#include <cstdint>
+ #include <rendering/mapeditor/TerrainEditor.h>
+ 
+ #include <rendering/mapeditor/UIMapEditor.h>
+diff --git a/src/rendering/mapeditor/TerrainEditor.h b/src/rendering/mapeditor/TerrainEditor.h
+index 2df4764..97f950f 100644
+--- a/src/rendering/mapeditor/TerrainEditor.h
++++ b/src/rendering/mapeditor/TerrainEditor.h
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <cstdint>
+ 
+ #include <glm/vec2.hpp>
+ #include <glm/vec3.hpp>
+diff --git a/src/rendering/mapeditor/UIAILinks.cpp b/src/rendering/mapeditor/UIAILinks.cpp
+index 70ccd76..2cb5f84 100644
+--- a/src/rendering/mapeditor/UIAILinks.cpp
++++ b/src/rendering/mapeditor/UIAILinks.cpp
+@@ -1,3 +1,8 @@
++#include <algorithm>
++#include <iterator>
++#include <memory>
++#include <string>
++#include <cstdint>
+ #include "UIAILinks.h"
+ 
+ #include <game/Scene.h>
+diff --git a/src/rendering/mapeditor/UIMapEditor.h b/src/rendering/mapeditor/UIMapEditor.h
+index ab41921..abe5d46 100644
+--- a/src/rendering/mapeditor/UIMapEditor.h
++++ b/src/rendering/mapeditor/UIMapEditor.h
+@@ -1,5 +1,11 @@
+ #pragma once
+ 
++#include <map>
++#include <string>
++#include <variant>
++#include <vector>
++#include <cstdint>
++
+ #include <rendering/UIWindowBase.h>
+ #include <file/game/bfres/BfresFile.h>
+ #include <manager/FramebufferMgr.h>
+diff --git a/src/rendering/plugin/UIPlugins.cpp b/src/rendering/plugin/UIPlugins.cpp
+index fa72cd7..2ad51b5 100644
+--- a/src/rendering/plugin/UIPlugins.cpp
++++ b/src/rendering/plugin/UIPlugins.cpp
+@@ -1,3 +1,4 @@
++#include <string>
+ #include "UIPlugins.h"
+ 
+ #include "imgui.h"
+diff --git a/src/rendering/plugin/UIPlugins.h b/src/rendering/plugin/UIPlugins.h
+index b4ac82e..cbe9179 100644
+--- a/src/rendering/plugin/UIPlugins.h
++++ b/src/rendering/plugin/UIPlugins.h
+@@ -1,5 +1,7 @@
+ #pragma once
+ 
++#include <string>
++
+ #include <rendering/UIWindowBase.h>
+ 
+ namespace application::rendering::plugin
+diff --git a/src/rendering/popup/PopUpBuilder.cpp b/src/rendering/popup/PopUpBuilder.cpp
+index b4f944d..63f5152 100644
+--- a/src/rendering/popup/PopUpBuilder.cpp
++++ b/src/rendering/popup/PopUpBuilder.cpp
+@@ -1,3 +1,6 @@
++#include <functional>
++#include <string>
++#include <cstdint>
+ #include "PopUpBuilder.h"
+ 
+ #include <cstring>
+diff --git a/src/rendering/popup/PopUpBuilder.h b/src/rendering/popup/PopUpBuilder.h
+index 2f62c08..586b7ab 100644
+--- a/src/rendering/popup/PopUpBuilder.h
++++ b/src/rendering/popup/PopUpBuilder.h
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <cstdint>
+ 
+ #include <functional>
+ #include <string>
+diff --git a/src/rendering/popup/PopUpCommon.cpp b/src/rendering/popup/PopUpCommon.cpp
+index b4aca08..4cc4628 100644
+--- a/src/rendering/popup/PopUpCommon.cpp
++++ b/src/rendering/popup/PopUpCommon.cpp
+@@ -1,3 +1,4 @@
++#include <string>
+ #include "PopUpCommon.h"
+ 
+ #include <manager/ActorPackMgr.h>
+diff --git a/src/tool/AINBFileSearcher.cpp b/src/tool/AINBFileSearcher.cpp
+index 5366e41..dfb55d0 100644
+--- a/src/tool/AINBFileSearcher.cpp
++++ b/src/tool/AINBFileSearcher.cpp
+@@ -1,3 +1,7 @@
++#include <fstream>
++#include <functional>
++#include <string>
++#include <vector>
+ #include <tool/AINBFileSearcher.h>
+ 
+ #include <util/Logger.h>
+diff --git a/src/tool/ResourceSizeTableGenerator.cpp b/src/tool/ResourceSizeTableGenerator.cpp
+index 1bad91b..b5dd599 100644
+--- a/src/tool/ResourceSizeTableGenerator.cpp
++++ b/src/tool/ResourceSizeTableGenerator.cpp
+@@ -1,3 +1,7 @@
++#include <string>
++#include <unordered_map>
++#include <vector>
++#include <cstdint>
+ #include "ResourceSizeTableGenerator.h"
+ 
+ #include <util/FileUtil.h>
+diff --git a/src/tool/ResourceSizeTableGenerator.h b/src/tool/ResourceSizeTableGenerator.h
+index 0c4f2c4..0142648 100644
+--- a/src/tool/ResourceSizeTableGenerator.h
++++ b/src/tool/ResourceSizeTableGenerator.h
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <cstdint>
+ 
+ #include <string>
+ #include <vector>
+diff --git a/src/tool/SceneCreator.cpp b/src/tool/SceneCreator.cpp
+index 80e59fd..51a31d3 100644
+--- a/src/tool/SceneCreator.cpp
++++ b/src/tool/SceneCreator.cpp
+@@ -1,3 +1,5 @@
++#include <cstring>
++#include <string>
+ #include "SceneCreator.h"
+ 
+ #include <file/game/byml/BymlFile.h>
+diff --git a/src/tool/scene/StaticCompoundImplementationBase.cpp b/src/tool/scene/StaticCompoundImplementationBase.cpp
+index a1a46a6..63b799a 100644
+--- a/src/tool/scene/StaticCompoundImplementationBase.cpp
++++ b/src/tool/scene/StaticCompoundImplementationBase.cpp
+@@ -1,3 +1,7 @@
++#include <map>
++#include <string>
++#include <variant>
++#include <cstdint>
+ #include "StaticCompoundImplementationBase.h"
+ 
+ namespace application::tool::scene
+diff --git a/src/tool/scene/StaticCompoundImplementationBase.h b/src/tool/scene/StaticCompoundImplementationBase.h
+index 87bbd90..75e6edb 100644
+--- a/src/tool/scene/StaticCompoundImplementationBase.h
++++ b/src/tool/scene/StaticCompoundImplementationBase.h
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <cstdint>
+ 
+ #include <game/BancEntity.h>
+ #include <gl/Camera.h>
+diff --git a/src/tool/scene/navmesh/NavMeshImplementationFieldScene.cpp b/src/tool/scene/navmesh/NavMeshImplementationFieldScene.cpp
+index 730d39d..46079a3 100644
+--- a/src/tool/scene/navmesh/NavMeshImplementationFieldScene.cpp
++++ b/src/tool/scene/navmesh/NavMeshImplementationFieldScene.cpp
+@@ -1,3 +1,14 @@
++#include <algorithm>
++#include <array>
++#include <cmath>
++#include <filesystem>
++#include <iostream>
++#include <memory>
++#include <string>
++#include <unordered_map>
++#include <utility>
++#include <vector>
++#include <cstdint>
+ #include "NavMeshImplementationFieldScene.h"
+ 
+ #include <util/Logger.h>
+diff --git a/src/tool/scene/navmesh/NavMeshImplementationFieldScene.h b/src/tool/scene/navmesh/NavMeshImplementationFieldScene.h
+index 95f8826..d1c371f 100644
+--- a/src/tool/scene/navmesh/NavMeshImplementationFieldScene.h
++++ b/src/tool/scene/navmesh/NavMeshImplementationFieldScene.h
+@@ -1,5 +1,11 @@
+ #pragma once
+ 
++#include <cmath>
++#include <string>
++#include <utility>
++#include <vector>
++#include <cstdint>
++
+ #include <game/Scene.h>
+ #include <tool/scene/NavMeshImplementationBase.h>
+ #include <file/game/phive/navmesh/PhiveNavMesh.h>
+diff --git a/src/tool/scene/navmesh/NavMeshImplementationSingleScene.cpp b/src/tool/scene/navmesh/NavMeshImplementationSingleScene.cpp
+index db994af..0c8862b 100644
+--- a/src/tool/scene/navmesh/NavMeshImplementationSingleScene.cpp
++++ b/src/tool/scene/navmesh/NavMeshImplementationSingleScene.cpp
+@@ -1,3 +1,8 @@
++#include <filesystem>
++#include <string>
++#include <utility>
++#include <vector>
++#include <cstdint>
+ #include "NavMeshImplementationSingleScene.h"
+ 
+ #include <util/Logger.h>
+diff --git a/src/tool/scene/static_compound/StaticCompoundImplementationFieldScene.cpp b/src/tool/scene/static_compound/StaticCompoundImplementationFieldScene.cpp
+index 075208e..7ec41fd 100644
+--- a/src/tool/scene/static_compound/StaticCompoundImplementationFieldScene.cpp
++++ b/src/tool/scene/static_compound/StaticCompoundImplementationFieldScene.cpp
+@@ -1,3 +1,11 @@
++#include <algorithm>
++#include <cmath>
++#include <filesystem>
++#include <iterator>
++#include <limits>
++#include <string>
++#include <vector>
++#include <cstdint>
+ #include "StaticCompoundImplementationFieldScene.h"
+ 
+ #include <file/game/zstd/ZStdBackend.h>
+diff --git a/src/tool/scene/static_compound/StaticCompoundImplementationFieldScene.h b/src/tool/scene/static_compound/StaticCompoundImplementationFieldScene.h
+index b23d651..11256c8 100644
+--- a/src/tool/scene/static_compound/StaticCompoundImplementationFieldScene.h
++++ b/src/tool/scene/static_compound/StaticCompoundImplementationFieldScene.h
+@@ -1,5 +1,8 @@
+ #pragma once
+ 
++#include <vector>
++#include <cstdint>
++
+ #include <game/Scene.h>
+ #include <tool/scene/StaticCompoundImplementationBase.h>
+ #include <file/game/phive/PhiveStaticCompoundFile.h>
+diff --git a/src/tool/scene/static_compound/StaticCompoundImplementationSingleScene.cpp b/src/tool/scene/static_compound/StaticCompoundImplementationSingleScene.cpp
+index 999d2f4..494045e 100644
+--- a/src/tool/scene/static_compound/StaticCompoundImplementationSingleScene.cpp
++++ b/src/tool/scene/static_compound/StaticCompoundImplementationSingleScene.cpp
+@@ -1,3 +1,11 @@
++#include <algorithm>
++#include <filesystem>
++#include <iostream>
++#include <limits>
++#include <optional>
++#include <string>
++#include <vector>
++#include <cstdint>
+ #include "StaticCompoundImplementationSingleScene.h"
+ 
+ #include <file/game/zstd/ZStdBackend.h>
+diff --git a/src/tool/scene/static_compound/StaticCompoundImplementationSingleScene.h b/src/tool/scene/static_compound/StaticCompoundImplementationSingleScene.h
+index 0d8e2e7..3e58f3b 100644
+--- a/src/tool/scene/static_compound/StaticCompoundImplementationSingleScene.h
++++ b/src/tool/scene/static_compound/StaticCompoundImplementationSingleScene.h
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <cstdint>
+ 
+ #include <game/Scene.h>
+ #include <tool/scene/StaticCompoundImplementationBase.h>
+diff --git a/src/util/BinaryVectorReader.cpp b/src/util/BinaryVectorReader.cpp
+index a86cc7f..7c46e4e 100644
+--- a/src/util/BinaryVectorReader.cpp
++++ b/src/util/BinaryVectorReader.cpp
+@@ -1,3 +1,6 @@
++#include <string>
++#include <vector>
++#include <cstdint>
+ #include "BinaryVectorReader.h"
+ 
+ #include <cstring>
+diff --git a/src/util/BinaryVectorReader.h b/src/util/BinaryVectorReader.h
+index d061fed..f4bece1 100644
+--- a/src/util/BinaryVectorReader.h
++++ b/src/util/BinaryVectorReader.h
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <cstdint>
+ 
+ #include <vector>
+ #include <string>
+diff --git a/src/util/BinaryVectorWriter.cpp b/src/util/BinaryVectorWriter.cpp
+index 39c1d91..3c17434 100644
+--- a/src/util/BinaryVectorWriter.cpp
++++ b/src/util/BinaryVectorWriter.cpp
+@@ -1,3 +1,6 @@
++#include <cstring>
++#include <vector>
++#include <cstdint>
+ #include "BinaryVectorWriter.h"
+ 
+ namespace application::util
+diff --git a/src/util/BinaryVectorWriter.h b/src/util/BinaryVectorWriter.h
+index 8132a92..a61ff88 100644
+--- a/src/util/BinaryVectorWriter.h
++++ b/src/util/BinaryVectorWriter.h
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <cstdint>
+ 
+ #include <vector>
+ 
+diff --git a/src/util/FileUtil.cpp b/src/util/FileUtil.cpp
+index aa7a1e5..85ac116 100644
+--- a/src/util/FileUtil.cpp
++++ b/src/util/FileUtil.cpp
+@@ -1,6 +1,10 @@
++#include <algorithm>
++#include <string>
++#include <vector>
+ #include <util/FileUtil.h>
+ 
+ #include <filesystem>
++#include <iterator>
+ #include <fstream>
+ #include <util/Logger.h>
+ #include <manager/ProjectMgr.h>
+diff --git a/src/util/General.cpp b/src/util/General.cpp
+index 80f7420..7c6b257 100644
+--- a/src/util/General.cpp
++++ b/src/util/General.cpp
+@@ -1,3 +1,4 @@
++#include <string>
+ #include "General.h"
+ 
+ namespace application::util
+diff --git a/src/util/General.h b/src/util/General.h
+index b4fa2d3..3c83402 100644
+--- a/src/util/General.h
++++ b/src/util/General.h
+@@ -1,5 +1,7 @@
+ #pragma once
+ 
++#include <vector>
++
+ #include <string>
+ #include <unordered_set>
+ 
+diff --git a/src/util/GitManager.cpp b/src/util/GitManager.cpp
+index 2bd6a55..21f6af7 100644
+--- a/src/util/GitManager.cpp
++++ b/src/util/GitManager.cpp
+@@ -1,3 +1,4 @@
++#include <string>
+ #include <util/GitManager.h>
+ #include <util/Logger.h>
+ #include <ctime>
+diff --git a/src/util/GitManager.h b/src/util/GitManager.h
+index 764fc5c..e241a5c 100644
+--- a/src/util/GitManager.h
++++ b/src/util/GitManager.h
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <cstdint>
+ 
+ #include <string>
+ #include <optional>
+diff --git a/src/util/HardwareInfo.cpp b/src/util/HardwareInfo.cpp
+index 15a55b8..8f615d1 100644
+--- a/src/util/HardwareInfo.cpp
++++ b/src/util/HardwareInfo.cpp
+@@ -1,3 +1,5 @@
++#include <cstring>
++#include <string>
+ #include "HardwareInfo.h"
+ 
+ #include <sstream>
+diff --git a/src/util/ImGuiNotify.h b/src/util/ImGuiNotify.h
+index 169a144..beda0f1 100644
+--- a/src/util/ImGuiNotify.h
++++ b/src/util/ImGuiNotify.h
+@@ -1,3 +1,4 @@
++#include <cstring>
+ /**
+  * @file ImGuiNotify.h
+  * @brief A header-only library for creating toast notifications with ImGui.
+@@ -13,6 +14,7 @@
+ #define IMGUI_NOTIFY
+ 
+ #pragma once
++#include <cstdint>
+ 
+ #include <vector>			// Vector for storing notifications list
+ #include <string>
+diff --git a/src/util/Logger.cpp b/src/util/Logger.cpp
+index 7191014..24584c1 100644
+--- a/src/util/Logger.cpp
++++ b/src/util/Logger.cpp
+@@ -1,3 +1,4 @@
++#include <string>
+ #include "Logger.h"
+ 
+ #include <iostream>
+diff --git a/src/util/Math.cpp b/src/util/Math.cpp
+index eb234ea..d452684 100644
+--- a/src/util/Math.cpp
++++ b/src/util/Math.cpp
+@@ -1,3 +1,10 @@
++#include <cmath>
++#include <limits>
++#include <stdexcept>
++#include <string>
++#include <utility>
++#include <vector>
++#include <cstdint>
+ #include "Math.h"
+ 
+ #include <glm/trigonometric.hpp>
+diff --git a/src/util/Math.h b/src/util/Math.h
+index 72e1bcd..ab61c03 100644
+--- a/src/util/Math.h
++++ b/src/util/Math.h
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <cstdint>
+ 
+ #include <glm/vec3.hpp>
+ #include <glm/mat4x4.hpp>
+diff --git a/src/util/MeshOptimizer.cpp b/src/util/MeshOptimizer.cpp
+index 5cf1bff..5d51ac1 100644
+--- a/src/util/MeshOptimizer.cpp
++++ b/src/util/MeshOptimizer.cpp
+@@ -1,3 +1,6 @@
++#include <limits>
++#include <vector>
++#include <cstdint>
+ #include <util/MeshOptimizer.h>
+ 
+ #include <OpenMesh/Tools/Decimater/DecimaterT.hh>
+diff --git a/src/util/MeshOptimizer.h b/src/util/MeshOptimizer.h
+index 84aff22..7918f10 100644
+--- a/src/util/MeshOptimizer.h
++++ b/src/util/MeshOptimizer.h
+@@ -1,4 +1,5 @@
+ #pragma once
++#include <cstdint>
+ 
+ #include <vector>
+ #include <glm/vec3.hpp>
+diff --git a/src/util/backward.h b/src/util/backward.h
+index 664a0f1..6347924 100644
+--- a/src/util/backward.h
++++ b/src/util/backward.h
+@@ -1,3 +1,4 @@
++#include <cstdint>
+ /*
+  * backward.hpp
+  * Copyright 2013 Google Inc. All Rights Reserved.
+diff --git a/src/util/delaunator.h b/src/util/delaunator.h
+index ef5194a..0735c87 100644
+--- a/src/util/delaunator.h
++++ b/src/util/delaunator.h
+@@ -1,5 +1,7 @@
+ #pragma once
+ 
++#include <stdexcept>
++
+ #include <algorithm>
+ #include <cmath>
+ #include <exception>
+diff --git a/src/util/portable-file-dialogs.h b/src/util/portable-file-dialogs.h
+index ec71cec..5cce4c8 100644
+--- a/src/util/portable-file-dialogs.h
++++ b/src/util/portable-file-dialogs.h
+@@ -1,3 +1,9 @@
++#include <algorithm>
++#include <cstring>
++#include <functional>
++#include <iterator>
++#include <mutex>
++#include <vector>
+ //
+ //  Portable File Dialogs
+ //
+@@ -11,6 +17,7 @@
+ //
+ 
+ #pragma once
++#include <cstdint>
+ 
+ #if _WIN32
+ #ifndef WIN32_LEAN_AND_MEAN

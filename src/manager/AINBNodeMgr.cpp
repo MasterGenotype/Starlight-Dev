@@ -1,3 +1,11 @@
+#include <algorithm>
+#include <functional>
+#include <iterator>
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+#include <cstdint>
 #include "AINBNodeMgr.h"
 
 #include "imgui.h"

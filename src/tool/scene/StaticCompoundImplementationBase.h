@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 
 #include <game/BancEntity.h>
 #include <gl/Camera.h>

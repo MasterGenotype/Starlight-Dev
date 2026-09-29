@@ -1,5 +1,10 @@
 #pragma once
 
+#include <memory>
+#include <unordered_map>
+#include <variant>
+#include <cstdint>
+
 #include <glad/glad.h>
 #include <rendering/UIWindowBase.h>
 #include <manager/TextureMgr.h>

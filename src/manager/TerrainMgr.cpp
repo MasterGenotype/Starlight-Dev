@@ -1,3 +1,7 @@
+#include <cmath>
+#include <string>
+#include <unordered_map>
+#include <cstdint>
 #include <manager/TerrainMgr.h>
 
 #include <util/FileUtil.h>

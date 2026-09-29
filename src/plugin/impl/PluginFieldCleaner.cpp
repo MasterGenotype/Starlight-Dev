@@ -1,3 +1,5 @@
+#include <string>
+#include <cstdint>
 #include <plugin/impl/PluginFieldCleaner.h>
 
 #include <rendering/mapeditor/TerrainEditor.h>

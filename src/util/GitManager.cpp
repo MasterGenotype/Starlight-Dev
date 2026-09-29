@@ -1,3 +1,4 @@
+#include <string>
 #include <util/GitManager.h>
 #include <util/Logger.h>
 #include <ctime>

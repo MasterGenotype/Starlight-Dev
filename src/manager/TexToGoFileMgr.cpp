@@ -1,3 +1,5 @@
+#include <string>
+#include <unordered_map>
 #include "TexToGoFileMgr.h"
 
 #include <util/FileUtil.h>

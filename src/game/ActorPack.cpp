@@ -1,3 +1,8 @@
+#include <filesystem>
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
 #include "ActorPack.h"
 
 #include <util/FileUtil.h>

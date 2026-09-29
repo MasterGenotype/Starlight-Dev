@@ -1,3 +1,5 @@
+#include <vector>
+#include <cstdint>
 #include "PhiveMaterialData.h"
 
 namespace application::file::game::phive::util

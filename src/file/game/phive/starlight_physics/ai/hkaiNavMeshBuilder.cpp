@@ -1,3 +1,5 @@
+#include <utility>
+#include <cstdint>
 #include <file/game/phive/starlight_physics/ai/hkaiNavMeshBuilder.h>
 
 #include <file/game/phive/starlight_physics/ai/hkaiNavMeshGeometryGenerator.h>

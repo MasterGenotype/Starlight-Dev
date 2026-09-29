@@ -1,3 +1,5 @@
+#include <cstring>
+#include <string>
 #include "HardwareInfo.h"
 
 #include <sstream>

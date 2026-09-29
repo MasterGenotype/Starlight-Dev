@@ -1,3 +1,5 @@
+#include <string>
+#include <unordered_map>
 #include "ShaderMgr.h"
 
 #include <util/Logger.h>

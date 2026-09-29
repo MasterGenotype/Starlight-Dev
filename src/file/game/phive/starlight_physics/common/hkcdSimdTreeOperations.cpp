@@ -1,3 +1,5 @@
+#include <limits>
+#include <vector>
 #include <file/game/phive/starlight_physics/common/hkcdSimdTreeOperations.h>
 
 #include <algorithm>

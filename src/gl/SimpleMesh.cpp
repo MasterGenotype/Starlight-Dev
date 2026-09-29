@@ -1,3 +1,4 @@
+#include <vector>
 #include "SimpleMesh.h"
 
 namespace application::gl

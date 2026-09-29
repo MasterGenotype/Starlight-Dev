@@ -1,3 +1,12 @@
+#include <algorithm>
+#include <filesystem>
+#include <iterator>
+#include <memory>
+#include <optional>
+#include <string>
+#include <utility>
+#include <vector>
+#include <cstdint>
 #include "UIActorTool.h"
 
 #include <manager/UIMgr.h>
@@ -30,7 +39,7 @@ namespace application::rendering::actor
 	{
 		bool Modified = false;
 
-		ImGui::Text((Node->GetKey() + ((Node->GetType() == application::file::game::byml::BymlFile::Type::Dictionary || Node->GetType() == application::file::game::byml::BymlFile::Type::Array) ? ":" : "")).c_str());
+		ImGui::TextUnformatted((Node->GetKey() + ((Node->GetType() == application::file::game::byml::BymlFile::Type::Dictionary || Node->GetType() == application::file::game::byml::BymlFile::Type::Array) ? ":" : "")).c_str());
 
 		ImGui::NextColumn();
 
@@ -138,7 +147,7 @@ namespace application::rendering::actor
 		ImGui::TableNextRow();
 		ImGui::TableSetColumnIndex(0);
 		ImGui::AlignTextToFramePadding();
-		ImGui::Text(DisplayName.c_str());
+		ImGui::TextUnformatted(DisplayName.c_str());
 		if (DelFunction.has_value())
 		{
 			const float Height = ImGui::GetCurrentContext()->FontSize + ImGui::GetStyle().FramePadding.y * 2;
@@ -1000,7 +1009,7 @@ namespace application::rendering::actor
 					ImGui::NextColumn();
 				}
 
-				ImGui::Text(Iter->first.c_str());
+				ImGui::TextUnformatted(Iter->first.c_str());
 				ImGui::NextColumn();
 				if (ImGui::Button(("Open##" + Iter->first).c_str()))
 				{

@@ -1,3 +1,6 @@
+#include <memory>
+#include <vector>
+#include <cstdint>
 #include "UIAINBEditorNodeSplitTiming.h"
 
 #include <util/Logger.h>

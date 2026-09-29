@@ -1,3 +1,12 @@
+#include <algorithm>
+#include <iterator>
+#include <map>
+#include <memory>
+#include <optional>
+#include <string>
+#include <variant>
+#include <vector>
+#include <cstdint>
 #include "UIMapEditor.h"
 
 #include "imgui_internal.h"
@@ -1361,7 +1370,7 @@ namespace application::rendering::map_editor
         ImGui::Text("Selected: %s", SelectedTemplate.mName.c_str());
         ImGui::Text("Actors: %zu", SelectedTemplate.mActors.size());
         ImGui::TextColored(IsPreviewingSelectedTemplate ? ImVec4(0.2f, 0.9f, 0.5f, 1.0f) : ImVec4(0.8f, 0.8f, 0.8f, 1.0f),
-            IsPreviewingSelectedTemplate ? "Preview: Active" : "Preview: Inactive");
+            "%s", IsPreviewingSelectedTemplate ? "Preview: Active" : "Preview: Inactive");
 
         ImGui::Columns(2);
         if (!mScene.IsLoaded())
@@ -1465,7 +1474,7 @@ namespace application::rendering::map_editor
                     });
             };
 
-        ImGui::Text(Title.c_str());
+        ImGui::TextUnformatted(Title.c_str());
         ImGui::SameLine();
         const float Size = (ImGui::GetCurrentContext()->FontSize + ImGui::GetStyle().FramePadding.y * 2) - ImGui::GetStyle().FramePadding.y * 2.0f;
         if (ImGui::ImageButton(("+##" + Title).c_str(), (ImTextureID)ImGuiExt::gAddButtonTexture->mID, ImVec2(Size, Size), ImVec2(0, 0)))
@@ -1509,7 +1518,7 @@ namespace application::rendering::map_editor
             bool Delete = false;
 
             ImGui::Indent();
-            ImGui::Text(Iter->first.c_str());
+            ImGui::TextUnformatted(Iter->first.c_str());
 
             ImGui::OpenPopupOnItemClick(("DynamicTypeParameterPopUp_" + Iter->first).c_str(), ImGuiPopupFlags_MouseButtonRight);
 
@@ -2595,7 +2604,7 @@ namespace application::rendering::map_editor
                         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0, 1, 0, 1));
                     else
                         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 0, 0, 1));
-                    ImGui::Text(HasFarActor ? "Yes" : "No");
+                    ImGui::TextUnformatted(HasFarActor ? "Yes" : "No");
                     ImGui::PopStyleColor();
                     ImGui::Columns();
                 }

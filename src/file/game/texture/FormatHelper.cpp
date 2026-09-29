@@ -1,3 +1,6 @@
+#include <string>
+#include <unordered_map>
+#include <cstdint>
 #include "FormatHelper.h"
 
 namespace application::file::game::texture

@@ -1,3 +1,4 @@
+#include <string>
 #include "ActorComponentModelInfo.h"
 
 #include <file/game/byml/BymlFile.h>

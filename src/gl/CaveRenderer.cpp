@@ -1,3 +1,5 @@
+#include <vector>
+#include <cstdint>
 #include "CaveRenderer.h"
 
 #include <glad/glad.h>

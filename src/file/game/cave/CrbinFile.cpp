@@ -1,3 +1,6 @@
+#include <string>
+#include <vector>
+#include <cstdint>
 #define ZSTD_STATIC_LINKING_ONLY
 
 #include "CrbinFile.h"

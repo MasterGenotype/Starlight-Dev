@@ -1,3 +1,6 @@
+#include <string>
+#include <vector>
+#include <cstdint>
 #include "BinaryVectorReader.h"
 
 #include <cstring>

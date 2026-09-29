@@ -1,3 +1,7 @@
+#include <string>
+#include <utility>
+#include <vector>
+#include <cstdint>
 #include "TexToGoFile.h"
 
 #include <util/BinaryVectorReader.h>

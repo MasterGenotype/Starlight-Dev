@@ -1,3 +1,6 @@
+#include <cstring>
+#include <string>
+#include <cstdint>
 #include "Editor.h"
 
 #include <manager/UIMgr.h>

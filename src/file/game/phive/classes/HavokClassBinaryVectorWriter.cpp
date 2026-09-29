@@ -1,3 +1,6 @@
+#include <functional>
+#include <string>
+#include <cstdint>
 #include "HavokClassBinaryVectorWriter.h"
 
 #include <file/game/phive/classes/HavokClasses.h>

@@ -1,3 +1,6 @@
+#include <filesystem>
+#include <string>
+#include <vector>
 #include "ActorComponentShapeParam.h"
 
 #include <file/game/byml/BymlFile.h>

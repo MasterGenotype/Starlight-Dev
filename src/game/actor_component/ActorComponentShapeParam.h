@@ -1,5 +1,8 @@
 #pragma once
 
+#include <string>
+#include <vector>
+
 #include <game/actor_component/ActorComponentBase.h>
 #include <game/ActorPack.h>
 #include <optional>

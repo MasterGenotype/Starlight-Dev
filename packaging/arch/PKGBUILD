@@ -1,0 +1,160 @@
+# Maintainer: MasterGenotype <mastergenotype@gmail.com>
+pkgname=starlight-totk-git
+_pkgname=Starlight-Dev
+_binname=Starlight
+pkgver=r19.6bb0b24
+pkgrel=1
+pkgdesc="Starlight - a map editor for The Legend of Zelda: Tears of the Kingdom"
+arch=('x86_64')
+url="https://github.com/MrMystery-Official/Starlight-Dev"
+license=('GPL3')
+
+depends=(
+  'libglvnd' 'glu'
+  'libx11' 'libxrandr' 'libxinerama' 'libxcursor' 'libxi'
+  'libxkbcommon' 'wayland'
+  'openssl' 'krb5' 'zlib' 'zstd' 'brotli' 'pcre'
+)
+makedepends=('cmake' 'git' 'gcc' 'wayland-protocols' 'libxext')
+options=('!lto')   # vendored deps aren't built with LTO upstream; don't be the first
+
+# The project's CMakeLists clones its dependencies at *configure* time. That would
+# mean network access inside build(), which makepkg rightly discourages, so every
+# dependency is declared as a real source here and staged into libs/ in prepare().
+#
+# Branches mirror what CMakeLists.txt asks for. They are moving targets - pin the
+# #commit= fragments below if you need a reproducible package.
+source=(
+  "$_pkgname::git+https://github.com/MrMystery-Official/Starlight-Dev.git"
+  "glfw::git+https://github.com/glfw/glfw.git"
+  "imgui::git+https://github.com/ocornut/imgui.git#tag=v1.91.5-docking"
+  "imgui-node-editor::git+https://github.com/thedmd/imgui-node-editor.git#branch=develop"
+  "glm::git+https://github.com/g-truc/glm.git"
+  "stb::git+https://github.com/nothings/stb.git"
+  "zstd::git+https://github.com/facebook/zstd.git#branch=dev"
+  "recastnavigation::git+https://github.com/recastnavigation/recastnavigation.git"
+  "bvh::git+https://github.com/madmann91/bvh.git#branch=v1"
+  "openmesh::git+https://github.com/Lawrencemm/openmesh.git"
+  "meshoptimizer::git+https://github.com/zeux/meshoptimizer.git"
+  "astcenc::git+https://github.com/ARM-software/astc-encoder.git"
+  "json::git+https://github.com/nlohmann/json.git#branch=develop"
+  "bullet3::git+https://github.com/bulletphysics/bullet3.git"
+  "libgit2::git+https://github.com/libgit2/libgit2.git"
+  "meshcodec::git+https://github.com/dt-12345/MeshCodec.git"
+  '0001-linux-gcc-portability.patch'
+  '0002-byml-roundtrip-correctness.patch'
+  '0003-imgui-format-security.patch'
+  'starlight.sh'
+  'starlight.desktop'
+)
+sha256sums=('SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP'
+            'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP'
+            'SKIP' 'SKIP' 'SKIP' 'SKIP' 'SKIP')
+
+pkgver() {
+  cd "$srcdir/$_pkgname"
+  printf "r%s.%s" "$(git rev-list --count HEAD)" "$(git rev-parse --short HEAD)"
+}
+
+prepare() {
+  cd "$srcdir/$_pkgname"
+
+  # --- portability + correctness patches -----------------------------------
+  # 0001: builds at all under GCC. libgit2 leaks a global CMAKE_C_STANDARD=90
+  #       that breaks bullet3's C99 clew.c; ~490 standard headers MSVC supplies
+  #       transitively and GCC 13+ does not; a stray UTF-8 BOM in Main.cpp;
+  #       zstd's amd64 .S never assembled (undefined HUF_*_fast_asm_loop);
+  #       and BymlFile.h's in-class template specialisations, which are an MSVC
+  #       extension, rewritten as `if constexpr`.
+  # 0002: two BYML round-trip data-corruption bugs. See the patch header.
+  # 0003: ImGui::Text called with a runtime string as the printf format. Also
+  #       what Arch's -Werror=format-security trips over.
+  patch -Np1 -i "$srcdir/0001-linux-gcc-portability.patch"
+  patch -Np1 -i "$srcdir/0002-byml-roundtrip-correctness.patch"
+  patch -Np1 -i "$srcdir/0003-imgui-format-security.patch"
+
+  # --- stage dependencies where CMakeLists expects them --------------------
+  mkdir -p libs
+  local _d
+  for _d in glfw imgui imgui-node-editor glm zstd recastnavigation bvh \
+            openmesh meshoptimizer astcenc json bullet3 libgit2 meshcodec; do
+    rm -rf "libs/$_d"
+    cp -a "$srcdir/$_d" "libs/$_d"
+  done
+
+  # stb is expected one level deeper: libs/stb/stb
+  rm -rf libs/stb
+  mkdir -p libs/stb
+  cp -a "$srcdir/stb" libs/stb/stb
+
+  # CMakeLists copies imgui's backend and misc sources into the imgui root, but
+  # only inside the `if(NOT EXISTS libs/imgui)` clone branch. Since we pre-stage
+  # imgui, that branch never runs and the build would fail on a missing
+  # imgui_impl_glfw.h - so do the copies here.
+  install -m644 libs/imgui/backends/imgui_impl_glfw.h \
+                libs/imgui/backends/imgui_impl_glfw.cpp \
+                libs/imgui/backends/imgui_impl_opengl3.h \
+                libs/imgui/backends/imgui_impl_opengl3.cpp \
+                libs/imgui/backends/imgui_impl_opengl3_loader.h \
+                libs/imgui/misc/cpp/imgui_stdlib.h \
+                libs/imgui/misc/cpp/imgui_stdlib.cpp \
+                libs/imgui/
+}
+
+build() {
+  cd "$srcdir/$_pkgname"
+
+  # Vendored OpenMesh is built as a shared library and the binary links it, so
+  # give the executable an $ORIGIN runpath - both land in /usr/lib/starlight.
+  #
+  # It has to be CMAKE_INSTALL_RPATH, not CMAKE_BUILD_RPATH: with
+  # CMAKE_BUILD_WITH_INSTALL_RPATH=ON the *install* rpath is what gets baked in,
+  # so setting only the build one leaves the binary with no runpath at all and
+  # it fails at startup with "libOpenMeshCore.so.8.0 => not found".
+  #
+  # -ffile-prefix-map keeps $srcdir out of __FILE__ strings (assert text from
+  # _GLIBCXX_ASSERTIONS and ImGui's IM_ASSERT), which otherwise trips makepkg's
+  # "Package contains reference to $srcdir" check and hurts reproducibility.
+  local _map="-ffile-prefix-map=$srcdir/$_pkgname=/usr/src/$pkgname"
+  CFLAGS+=" $_map"
+  CXXFLAGS+=" $_map"
+  export CFLAGS CXXFLAGS
+
+  cmake -B build -S . \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_POLICY_VERSION_MINIMUM=3.5 \
+    -DCMAKE_INSTALL_RPATH='$ORIGIN' \
+    -DCMAKE_BUILD_WITH_INSTALL_RPATH=ON
+
+  # Each C++ TU here peaks around 2 GB; cap parallelism by free RAM as well as
+  # by core count or the link/compile storm will OOM a smaller machine.
+  local _mem _jobs
+  _mem=$(awk '/MemAvailable/ {printf "%d", $2/1024/1024}' /proc/meminfo)
+  _jobs=$(( _mem / 2 )); (( _jobs < 1 )) && _jobs=1
+  (( _jobs > $(nproc) )) && _jobs=$(nproc)
+  echo "building with -j$_jobs (cores=$(nproc), available=${_mem}G)"
+
+  cmake --build build --parallel "$_jobs"
+}
+
+package() {
+  cd "$srcdir/$_pkgname"
+
+  install -Dm755 "build/src/$_binname" "$pkgdir/usr/lib/starlight/$_binname"
+
+  # vendored OpenMesh shared libs, resolved via the $ORIGIN runpath above
+  install -d "$pkgdir/usr/lib/starlight"
+  cp -a build/Build/lib/libOpenMesh*.so* "$pkgdir/usr/lib/starlight/"
+
+  # read-only runtime data
+  install -d "$pkgdir/usr/share/starlight"
+  cp -a rootDir/Assets "$pkgdir/usr/share/starlight/Assets"
+
+  # pristine WorkingDir template; the wrapper seeds a per-user copy on first run
+  cp -a rootDir/WorkingDir "$pkgdir/usr/share/starlight/WorkingDir"
+  find "$pkgdir/usr/share/starlight/WorkingDir" -name 'Cache' -prune -exec rm -rf {} + 2>/dev/null || true
+
+  install -Dm755 "$srcdir/starlight.sh"      "$pkgdir/usr/bin/starlight"
+  install -Dm644 "$srcdir/starlight.desktop" "$pkgdir/usr/share/applications/starlight.desktop"
+  install -Dm644 LICENSE.txt "$pkgdir/usr/share/licenses/$pkgname/LICENSE.txt"
+}

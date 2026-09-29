@@ -1,3 +1,8 @@
+#include <cstring>
+#include <string>
+#include <unordered_map>
+#include <vector>
+#include <cstdint>
 #include "BfresBinaryVectorReader.h"
 
 #include "BfresFile.h"

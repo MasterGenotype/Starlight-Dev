@@ -1,3 +1,4 @@
+#include <unordered_map>
 #include "BfresRendererMgr.h"
 
 #include <util/Logger.h>

@@ -1,3 +1,6 @@
+#include <string>
+#include <vector>
+#include <cstdint>
 #include "HghtArchive.h"
 
 #include <file/game/zstd/ZStdBackend.h>

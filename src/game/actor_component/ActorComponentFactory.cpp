@@ -1,3 +1,6 @@
+#include <functional>
+#include <memory>
+#include <unordered_map>
 #include "ActorComponentFactory.h"
 
 #include <game/actor_component/ActorComponentModelInfo.h>

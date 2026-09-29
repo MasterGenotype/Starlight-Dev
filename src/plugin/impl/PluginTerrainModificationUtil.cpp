@@ -1,3 +1,7 @@
+#include <algorithm>
+#include <string>
+#include <vector>
+#include <cstdint>
 #include <plugin/impl/PluginTerrainModificationUtil.h>
 
 #include <rendering/mapeditor/TerrainEditor.h>

@@ -1,5 +1,8 @@
 #pragma once
 
+#include <string>
+#include <cstdint>
+
 #include <vector>
 #include <glm/vec3.hpp>
 #include <glm/mat3x4.hpp>

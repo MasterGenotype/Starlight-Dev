@@ -1,5 +1,7 @@
 #pragma once
 
+#include <memory>
+
 #include <rendering/ainb/UIAINBEditorNodeBase.h>
 #include <rendering/popup/PopUpBuilder.h>
 #include <vector>

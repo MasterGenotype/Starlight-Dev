@@ -1,3 +1,5 @@
+#include <cstring>
+#include <string>
 #include "SceneCreator.h"
 
 #include <file/game/byml/BymlFile.h>

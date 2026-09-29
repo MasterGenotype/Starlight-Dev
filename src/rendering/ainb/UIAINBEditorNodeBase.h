@@ -1,5 +1,9 @@
 #pragma once
 
+#include <memory>
+#include <vector>
+#include <cstdint>
+
 #include "imgui_node_editor.h"
 #include "imgui_internal.h"
 #include <file/game/ainb/AINBFile.h>

@@ -1,3 +1,6 @@
+#include <string>
+#include <vector>
+#include <cstdint>
 #include "ZStdBackend.h"
 
 #include <util/FileUtil.h>

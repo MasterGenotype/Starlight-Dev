@@ -1,3 +1,6 @@
+#include <memory>
+#include <utility>
+#include <vector>
 #include "BVHBuilder.h"
 
 #include <bvh/vector.hpp>

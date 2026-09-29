@@ -1,3 +1,10 @@
+#include <cmath>
+#include <limits>
+#include <stdexcept>
+#include <string>
+#include <utility>
+#include <vector>
+#include <cstdint>
 #include "Math.h"
 
 #include <glm/trigonometric.hpp>

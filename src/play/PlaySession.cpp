@@ -1,3 +1,10 @@
+#include <mutex>
+#include <optional>
+#include <string>
+#include <thread>
+#include <utility>
+#include <vector>
+#include <cstdint>
 #include <play/PlaySession.h>
 
 #include "imgui.h"

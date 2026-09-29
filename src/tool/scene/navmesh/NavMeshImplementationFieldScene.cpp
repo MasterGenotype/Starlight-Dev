@@ -1,3 +1,14 @@
+#include <algorithm>
+#include <array>
+#include <cmath>
+#include <filesystem>
+#include <iostream>
+#include <memory>
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
+#include <cstdint>
 #include "NavMeshImplementationFieldScene.h"
 
 #include <util/Logger.h>

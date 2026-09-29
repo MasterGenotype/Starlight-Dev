@@ -4,8 +4,26 @@
 cmake_minimum_required (VERSION 3.8)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+
+# libs/libgit2 sets a *global* `CMAKE_C_STANDARD "90"` cache variable, which
+# then becomes the default for every C target in the whole tree - including
+# bullet3's clew.c, which is C99 and fails to compile under -std=c90.
+# Claim the cache entry first so libgit2's non-FORCE set() is a no-op; libgit2
+# still pins C90 on its own target (libs/libgit2/src/libgit2/CMakeLists.txt).
+set(CMAKE_C_STANDARD 11 CACHE STRING "C standard for targets that don't pin one" FORCE)
 set(CMAKE_CXX_FLAGS_RELEASE "-O2")
 set(CMAKE_POLICY_VERSION_MINIMUM 3.5)
+
+# Needed to assemble zstd's amd64 decode fast path (see the zstd target below).
+include(CheckLanguage)
+check_language(ASM)
+if(CMAKE_ASM_COMPILER AND NOT MSVC)
+    enable_language(ASM)
+    set(ZSTD_ASM_SUPPORTED ON)
+else()
+    set(ZSTD_ASM_SUPPORTED OFF)
+endif()
+message(STATUS "zstd amd64 assembly fast path: ${ZSTD_ASM_SUPPORTED}")
 
 find_package(Git QUIET)
 
@@ -369,6 +387,20 @@ target_link_libraries(imgui-node-editor PUBLIC
 
 file(GLOB_RECURSE ZSTD_SOURCES "${CMAKE_SOURCE_DIR}/libs/zstd/lib/*.c")
 list(FILTER ZSTD_SOURCES EXCLUDE REGEX "${CMAKE_SOURCE_DIR}/libs/zstd/lib/legacy/.*")
+
+# zstd's huf_decompress.c selects a hand-written amd64 assembly fast path whenever
+# the toolchain supports it (GCC/Clang on x86-64 - MSVC never does, which is why
+# globbing only *.c is enough on Windows). Without the .S the link fails with
+# undefined `HUF_decompress4X{1,2}_usingDTable_internal_fast_asm_loop`.
+if(ZSTD_ASM_SUPPORTED)
+    file(GLOB_RECURSE ZSTD_ASM_SOURCES "${CMAKE_SOURCE_DIR}/libs/zstd/lib/*.S")
+    list(FILTER ZSTD_ASM_SOURCES EXCLUDE REGEX "${CMAKE_SOURCE_DIR}/libs/zstd/lib/legacy/.*")
+    list(APPEND ZSTD_SOURCES ${ZSTD_ASM_SOURCES})
+else()
+    # No assembler available: tell zstd to use its portable C decode loop instead.
+    add_compile_definitions(ZSTD_DISABLE_ASM)
+endif()
+
 add_library(zstd
     ${ZSTD_SOURCES}
 )

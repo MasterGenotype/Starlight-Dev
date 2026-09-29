@@ -1,3 +1,5 @@
+#include <string>
+#include <unordered_map>
 #include "CaveMgr.h"
 
 #include <util/FileUtil.h>

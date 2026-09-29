@@ -1,3 +1,7 @@
+#include <algorithm>
+#include <cstring>
+#include <string>
+#include <cstdint>
 #include "ProjectConfigFile.h"
 
 #include <util/FileUtil.h>

@@ -1,3 +1,9 @@
+#include <algorithm>
+#include <cstring>
+#include <functional>
+#include <iterator>
+#include <mutex>
+#include <vector>
 //
 //  Portable File Dialogs
 //
@@ -11,6 +17,7 @@
 //
 
 #pragma once
+#include <cstdint>
 
 #if _WIN32
 #ifndef WIN32_LEAN_AND_MEAN

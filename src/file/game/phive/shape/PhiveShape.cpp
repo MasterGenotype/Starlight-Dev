@@ -1,3 +1,8 @@
+#include <cmath>
+#include <string>
+#include <utility>
+#include <vector>
+#include <cstdint>
 #include "PhiveShape.h"
 
 #include <file/game/phive/classes/HavokClassBinaryVectorReader.h>

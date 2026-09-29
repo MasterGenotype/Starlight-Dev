@@ -1,3 +1,10 @@
+#include <algorithm>
+#include <cmath>
+#include <functional>
+#include <optional>
+#include <unordered_map>
+#include <vector>
+#include <cstdint>
 #include "ImGuiExt.h"
 
 #include "imgui_internal.h"

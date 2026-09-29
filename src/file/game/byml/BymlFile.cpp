@@ -1,3 +1,7 @@
+#include <iterator>
+#include <string>
+#include <vector>
+#include <cstdint>
 #include "BymlFile.h"
 
 #include <fstream>
@@ -278,12 +282,25 @@ namespace application::file::game::byml
 
     void BymlFile::GenerateHashKeyTable(BymlFile::Node* Node)
     {
-        std::string str = Node->GetKey();
-        if (!str.empty())
+        // A node's key is a real dictionary key only when its PARENT is a
+        // dictionary. ParseNode gives array children synthetic numeric keys
+        // ("0", "1", ...) which must never enter the table.
+        //
+        // This used to be approximated by skipping any key that looked numeric
+        // (!IsNumber). That also dropped genuine dictionary keys that happen to
+        // be all digits - TotK stores hash-named entries that way, e.g.
+        // Banc/MainField/ChallengeFollowerPlayingArea. Those keys then missed
+        // the table, GetHashKeyTableIndex fell back to index 0, and every entry
+        // was written out under the same wrong key. Test on the parent instead.
+        if (Node->GetType() == BymlFile::Type::Dictionary)
         {
-            if (!mHashKeyTable.ContainsKey(str) && !IsNumber(str))
+            for (BymlFile::Node& Child : Node->GetChildren())
             {
-                mHashKeyTable.Insert(str, mHashKeyTable.Size());
+                const std::string& Key = Child.GetKey();
+                if (!Key.empty() && !mHashKeyTable.ContainsKey(Key))
+                {
+                    mHashKeyTable.Insert(Key, mHashKeyTable.Size());
+                }
             }
         }
 
@@ -403,9 +420,17 @@ namespace application::file::game::byml
         {
             if (!mCachedNodes.contains(Node))
             {
-                std::sort(Node.GetChildren().begin(), Node.GetChildren().end(), [this](BymlFile::Node& a, BymlFile::Node& b) {
-                    return GetHashKeyTableIndex(a.GetKey()) < GetHashKeyTableIndex(b.GetKey());
-                });
+                // NOTE: do NOT sort array children. A BYML array is an ordered
+                // sequence and its order is meaningful. The sort that used to be
+                // here keyed on GetHashKeyTableIndex(GetKey()), but array children
+                // carry no key - every key is "", so the comparator reported every
+                // pair as equivalent. std::sort over an all-equivalent range gives
+                // an unspecified permutation, not identity: libstdc++ reorders once
+                // the range passes the insertion-sort threshold, which silently
+                // corrupted 174 of 201 BYML v7 (.bcett) files on parse->serialise.
+                // MSVC happened to permute differently, hiding this on Windows.
+                // The matching sort in the Dictionary case below is correct and
+                // stays - dictionaries are keyed and must be ordered by key index.
 
                 Writer.WriteInteger(DataOffset + mWriterReservedDataOffset, sizeof(uint32_t), mBigEndian);
                 Writer.Seek(DataOffset + mWriterReservedDataOffset, application::util::BinaryVectorWriter::Position::Begin);
@@ -494,6 +519,20 @@ namespace application::file::game::byml
         {
             mHashKeyTable.Clear();
             mStringTable.Clear();
+
+            // mNodes are the children of the root node itself, so their keys are
+            // dictionary keys exactly when the root is a dictionary.
+            if (mType == BymlFile::Type::Dictionary)
+            {
+                for (BymlFile::Node& Node : mNodes)
+                {
+                    const std::string& Key = Node.GetKey();
+                    if (!Key.empty() && !mHashKeyTable.ContainsKey(Key))
+                    {
+                        mHashKeyTable.Insert(Key, mHashKeyTable.Size());
+                    }
+                }
+            }
 
             for (BymlFile::Node& Node : mNodes)
             {

@@ -1,3 +1,8 @@
+#include <algorithm>
+#include <iterator>
+#include <memory>
+#include <string>
+#include <cstdint>
 #include "UIAILinks.h"
 
 #include <game/Scene.h>

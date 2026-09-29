@@ -1,3 +1,9 @@
+#include <map>
+#include <string>
+#include <utility>
+#include <variant>
+#include <vector>
+#include <cstdint>
 #include "BancEntity.h"
 
 #include <util/Math.h>

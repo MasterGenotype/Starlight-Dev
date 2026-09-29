@@ -1,3 +1,5 @@
+#include <algorithm>
+#include <vector>
 #include "PopUpMgr.h"
 
 #include <util/Logger.h>

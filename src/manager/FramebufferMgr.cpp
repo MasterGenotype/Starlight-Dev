@@ -1,3 +1,5 @@
+#include <string>
+#include <unordered_map>
 #include "FramebufferMgr.h"
 
 namespace application::manager

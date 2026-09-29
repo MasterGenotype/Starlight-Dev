@@ -1,3 +1,8 @@
+#include <algorithm>
+#include <filesystem>
+#include <string>
+#include <unordered_map>
+#include <vector>
 #include "ActorPackMgr.h"
 
 #include <util/FileUtil.h>

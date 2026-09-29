@@ -1,3 +1,6 @@
+#include <limits>
+#include <vector>
+#include <cstdint>
 #include <util/MeshOptimizer.h>
 
 #include <OpenMesh/Tools/Decimater/DecimaterT.hh>

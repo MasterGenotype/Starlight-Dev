@@ -1,3 +1,8 @@
+#include <algorithm>
+#include <iterator>
+#include <string>
+#include <vector>
+#include <cstdint>
 #include "EXB.h"
 
 #include <util/Logger.h>

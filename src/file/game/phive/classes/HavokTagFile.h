@@ -1,5 +1,8 @@
 #pragma once
 
+#include <string>
+#include <cstdint>
+
 #include <vector>
 #include <file/game/phive/classes/HavokClasses.h>
 #include <file/game/phive/classes/HavokDataHolder.h>

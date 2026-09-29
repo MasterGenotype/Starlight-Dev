@@ -1,3 +1,5 @@
+#include <string>
+#include <unordered_map>
 #include "BfresFileMgr.h"
 
 namespace application::manager

@@ -1,3 +1,6 @@
+#include <cstring>
+#include <string>
+#include <cstdint>
 #include "GitIdentityFile.h"
 
 #include <util/FileUtil.h>

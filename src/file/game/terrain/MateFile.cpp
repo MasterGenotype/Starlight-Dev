@@ -1,3 +1,6 @@
+#include <algorithm>
+#include <vector>
+#include <cstdint>
 #include "MateFile.h"
 
 #include <util/BinaryVectorReader.h>

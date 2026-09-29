@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vector>
+
 #include <manager/AINBNodeMgr.h>
 #include <string>
 

@@ -1,3 +1,7 @@
+#include <string>
+#include <variant>
+#include <vector>
+#include <cstdint>
 #include "TerrainSceneFile.h"
 
 #include <util/FileUtil.h>

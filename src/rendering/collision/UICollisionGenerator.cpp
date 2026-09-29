@@ -1,3 +1,10 @@
+#include <algorithm>
+#include <filesystem>
+#include <iterator>
+#include <string>
+#include <utility>
+#include <vector>
+#include <cstdint>
 #include "UICollisionGenerator.h"
 
 #include "imgui_internal.h"

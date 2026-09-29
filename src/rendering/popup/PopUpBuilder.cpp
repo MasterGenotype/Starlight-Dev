@@ -1,3 +1,6 @@
+#include <functional>
+#include <string>
+#include <cstdint>
 #include "PopUpBuilder.h"
 
 #include <cstring>

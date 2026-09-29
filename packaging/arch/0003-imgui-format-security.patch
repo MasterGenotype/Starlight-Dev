@@ -1,0 +1,108 @@
+Subject: [PATCH 3/3] imgui: never pass a runtime string as a printf format
+
+ImGui::Text and friends are printf-style. Passing a std::string straight in as
+the format means any '%' inside it is interpreted - and these strings are BYML
+keys, actor display names and template titles, i.e. game data and user input.
+A name containing "%s" reads a garbage pointer off the stack.
+
+Use TextUnformatted for plain strings, and an explicit "%s" for TextColored,
+which has no unformatted variant. This is also what Arch's default
+-Werror=format-security catches, so the package will not build without it.
+
+diff --git a/src/rendering/actor/UIActorTool.cpp b/src/rendering/actor/UIActorTool.cpp
+index 481ce2d..a85b14c 100644
+--- a/src/rendering/actor/UIActorTool.cpp
++++ b/src/rendering/actor/UIActorTool.cpp
+@@ -1,3 +1,12 @@
++#include <algorithm>
++#include <filesystem>
++#include <iterator>
++#include <memory>
++#include <optional>
++#include <string>
++#include <utility>
++#include <vector>
++#include <cstdint>
+ #include "UIActorTool.h"
+ 
+ #include <manager/UIMgr.h>
+@@ -30,7 +39,7 @@ namespace application::rendering::actor
+ 	{
+ 		bool Modified = false;
+ 
+-		ImGui::Text((Node->GetKey() + ((Node->GetType() == application::file::game::byml::BymlFile::Type::Dictionary || Node->GetType() == application::file::game::byml::BymlFile::Type::Array) ? ":" : "")).c_str());
++		ImGui::TextUnformatted((Node->GetKey() + ((Node->GetType() == application::file::game::byml::BymlFile::Type::Dictionary || Node->GetType() == application::file::game::byml::BymlFile::Type::Array) ? ":" : "")).c_str());
+ 
+ 		ImGui::NextColumn();
+ 
+@@ -138,7 +147,7 @@ namespace application::rendering::actor
+ 		ImGui::TableNextRow();
+ 		ImGui::TableSetColumnIndex(0);
+ 		ImGui::AlignTextToFramePadding();
+-		ImGui::Text(DisplayName.c_str());
++		ImGui::TextUnformatted(DisplayName.c_str());
+ 		if (DelFunction.has_value())
+ 		{
+ 			const float Height = ImGui::GetCurrentContext()->FontSize + ImGui::GetStyle().FramePadding.y * 2;
+@@ -1000,7 +1009,7 @@ namespace application::rendering::actor
+ 					ImGui::NextColumn();
+ 				}
+ 
+-				ImGui::Text(Iter->first.c_str());
++				ImGui::TextUnformatted(Iter->first.c_str());
+ 				ImGui::NextColumn();
+ 				if (ImGui::Button(("Open##" + Iter->first).c_str()))
+ 				{
+diff --git a/src/rendering/mapeditor/UIMapEditor.cpp b/src/rendering/mapeditor/UIMapEditor.cpp
+index 1cf874a..cbb3a03 100644
+--- a/src/rendering/mapeditor/UIMapEditor.cpp
++++ b/src/rendering/mapeditor/UIMapEditor.cpp
+@@ -1,3 +1,12 @@
++#include <algorithm>
++#include <iterator>
++#include <map>
++#include <memory>
++#include <optional>
++#include <string>
++#include <variant>
++#include <vector>
++#include <cstdint>
+ #include "UIMapEditor.h"
+ 
+ #include "imgui_internal.h"
+@@ -1361,7 +1370,7 @@ namespace application::rendering::map_editor
+         ImGui::Text("Selected: %s", SelectedTemplate.mName.c_str());
+         ImGui::Text("Actors: %zu", SelectedTemplate.mActors.size());
+         ImGui::TextColored(IsPreviewingSelectedTemplate ? ImVec4(0.2f, 0.9f, 0.5f, 1.0f) : ImVec4(0.8f, 0.8f, 0.8f, 1.0f),
+-            IsPreviewingSelectedTemplate ? "Preview: Active" : "Preview: Inactive");
++            "%s", IsPreviewingSelectedTemplate ? "Preview: Active" : "Preview: Inactive");
+ 
+         ImGui::Columns(2);
+         if (!mScene.IsLoaded())
+@@ -1465,7 +1474,7 @@ namespace application::rendering::map_editor
+                     });
+             };
+ 
+-        ImGui::Text(Title.c_str());
++        ImGui::TextUnformatted(Title.c_str());
+         ImGui::SameLine();
+         const float Size = (ImGui::GetCurrentContext()->FontSize + ImGui::GetStyle().FramePadding.y * 2) - ImGui::GetStyle().FramePadding.y * 2.0f;
+         if (ImGui::ImageButton(("+##" + Title).c_str(), (ImTextureID)ImGuiExt::gAddButtonTexture->mID, ImVec2(Size, Size), ImVec2(0, 0)))
+@@ -1509,7 +1518,7 @@ namespace application::rendering::map_editor
+             bool Delete = false;
+ 
+             ImGui::Indent();
+-            ImGui::Text(Iter->first.c_str());
++            ImGui::TextUnformatted(Iter->first.c_str());
+ 
+             ImGui::OpenPopupOnItemClick(("DynamicTypeParameterPopUp_" + Iter->first).c_str(), ImGuiPopupFlags_MouseButtonRight);
+ 
+@@ -2595,7 +2604,7 @@ namespace application::rendering::map_editor
+                         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0, 1, 0, 1));
+                     else
+                         ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1, 0, 0, 1));
+-                    ImGui::Text(HasFarActor ? "Yes" : "No");
++                    ImGui::TextUnformatted(HasFarActor ? "Yes" : "No");
+                     ImGui::PopStyleColor();
+                     ImGui::Columns();
+                 }

@@ -1,3 +1,7 @@
+#include <iterator>
+#include <string>
+#include <vector>
+#include <cstdint>
 #include "ResTblFile.h"
 
 #include <fstream>

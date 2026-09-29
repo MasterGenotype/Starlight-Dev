@@ -1,3 +1,7 @@
+#include <string>
+#include <utility>
+#include <vector>
+#include <cstdint>
 #include "PhiveWrapper.h"
 
 #include <util/Logger.h>

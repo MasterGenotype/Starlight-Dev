@@ -1,5 +1,8 @@
 #pragma once
 
+#include <vector>
+#include <cstdint>
+
 #include <game/Scene.h>
 #include <tool/scene/StaticCompoundImplementationBase.h>
 #include <file/game/phive/PhiveStaticCompoundFile.h>

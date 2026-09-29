@@ -1,3 +1,8 @@
+#include <iterator>
+#include <string>
+#include <utility>
+#include <vector>
+#include <cstdint>
 #include <file/game/phive/PhiveNavMesh.h>
 
 #include <util/Logger.h>

@@ -1,5 +1,8 @@
 #pragma once
 
+#include <string>
+#include <cstdint>
+
 #include <vector>
 #include <utility>
 #include <util/BinaryVectorReader.h>

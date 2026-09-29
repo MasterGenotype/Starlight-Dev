@@ -1,5 +1,7 @@
 #pragma once
 
+#include <vector>
+
 #include <cstdint>
 #include <file/game/phive/starlight_physics/common/hkAabb.h>
 #include <file/game/phive/classes/HavokClasses.h>

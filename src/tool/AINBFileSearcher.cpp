@@ -1,3 +1,7 @@
+#include <fstream>
+#include <functional>
+#include <string>
+#include <vector>
 #include <tool/AINBFileSearcher.h>
 
 #include <util/Logger.h>

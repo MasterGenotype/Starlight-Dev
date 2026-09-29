@@ -1,3 +1,6 @@
+#include <algorithm>
+#include <vector>
+#include <cstdint>
 #include <file/game/phive/starlight_physics/common/hkcdStaticAabbTreeGeneration.h>
 
 #include <bvh/sweep_sah_builder.hpp>

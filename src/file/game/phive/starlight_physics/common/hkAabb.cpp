@@ -1,3 +1,4 @@
+#include <limits>
 #include <file/game/phive/starlight_physics/common/hkAabb.h>
 
 #include <glm/vec3.hpp>

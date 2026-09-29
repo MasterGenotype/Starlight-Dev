@@ -1,5 +1,11 @@
 #pragma once
 
+#include <cmath>
+#include <string>
+#include <utility>
+#include <vector>
+#include <cstdint>
+
 #include <game/Scene.h>
 #include <tool/scene/NavMeshImplementationBase.h>
 #include <file/game/phive/navmesh/PhiveNavMesh.h>

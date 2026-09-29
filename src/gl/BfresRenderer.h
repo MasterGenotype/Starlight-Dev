@@ -1,5 +1,10 @@
 #pragma once
 
+#include <string>
+#include <utility>
+#include <vector>
+#include <cstdint>
+
 #include <glad/glad.h>
 #include <file/game/bfres/BfresFile.h>
 #include <unordered_map>

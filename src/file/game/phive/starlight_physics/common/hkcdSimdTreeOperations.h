@@ -1,5 +1,9 @@
 #pragma once
 
+#include <cstring>
+#include <limits>
+#include <cstdint>
+
 #include <glm/vec4.hpp>
 #include <glm/gtc/type_ptr.hpp>
 #include <cassert>

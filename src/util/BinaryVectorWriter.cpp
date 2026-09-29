@@ -1,3 +1,6 @@
+#include <cstring>
+#include <vector>
+#include <cstdint>
 #include "BinaryVectorWriter.h"
 
 namespace application::util

@@ -1,3 +1,6 @@
+#include <algorithm>
+#include <string>
+#include <cstdint>
 #include "UIAINBEditorNodeBase.h"
 
 #include <rendering/ainb/UIAINBEditor.h>

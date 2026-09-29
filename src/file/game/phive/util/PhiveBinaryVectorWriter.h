@@ -1,5 +1,8 @@
 #pragma once
 
+#include <vector>
+#include <cstdint>
+
 #include <util/BinaryVectorWriter.h>
 #include <util/Logger.h>
 #include <file/game/phive/util/PhiveWrapper.h>

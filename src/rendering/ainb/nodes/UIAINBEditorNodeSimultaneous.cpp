@@ -1,3 +1,6 @@
+#include <memory>
+#include <vector>
+#include <cstdint>
 #include "UIAINBEditorNodeSimultaneous.h"
 
 #include <util/Logger.h>

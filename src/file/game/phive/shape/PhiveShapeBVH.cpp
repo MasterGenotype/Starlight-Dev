@@ -1,3 +1,11 @@
+#include <array>
+#include <functional>
+#include <limits>
+#include <memory>
+#include <unordered_set>
+#include <utility>
+#include <vector>
+#include <cstdint>
 #include "PhiveShapeBVH.h"
 
 #include <algorithm>

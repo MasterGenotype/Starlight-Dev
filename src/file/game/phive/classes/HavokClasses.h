@@ -1,5 +1,11 @@
 #pragma once
 
+#include <algorithm>
+#include <limits>
+#include <string>
+#include <utility>
+#include <cstdint>
+
 #include <file/game/phive/classes/HavokClassBinaryVectorReader.h>
 #include <file/game/phive/classes/HavokClassBinaryVectorWriter.h>
 #include <file/game/phive/starlight_physics/common/hkAabb.h>

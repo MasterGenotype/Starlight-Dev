@@ -1,3 +1,5 @@
+#include <vector>
+#include <cstdint>
 #include "HghtFile.h"
 
 #include <util/FileUtil.h>

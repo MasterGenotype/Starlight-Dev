@@ -1,3 +1,8 @@
+#include <filesystem>
+#include <map>
+#include <string>
+#include <unordered_map>
+#include <cstdint>
 #include <manager/GameDataListMgr.h>
 
 #include <util/FileUtil.h>

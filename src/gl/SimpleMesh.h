@@ -1,5 +1,8 @@
 #pragma once
 
+#include <vector>
+#include <cstdint>
+
 #include <string>
 #include <glm/glm.hpp>
 #include <gl/BufferObject.h>

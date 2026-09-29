@@ -1,3 +1,4 @@
+#include <cstdint>
 #include "TextureFormat.h"
 
 namespace application::file::game::texture

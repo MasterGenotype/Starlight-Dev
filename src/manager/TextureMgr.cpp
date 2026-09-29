@@ -1,3 +1,5 @@
+#include <string>
+#include <unordered_map>
 #include "TextureMgr.h"
 
 #include <util/Logger.h>

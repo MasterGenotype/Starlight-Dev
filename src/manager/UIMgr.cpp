@@ -1,3 +1,8 @@
+#include <iostream>
+#include <memory>
+#include <string>
+#include <utility>
+#include <vector>
 #include "UIMgr.h"
 
 #include "imgui_impl_glfw.h"

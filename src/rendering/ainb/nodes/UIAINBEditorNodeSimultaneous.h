@@ -1,5 +1,8 @@
 #pragma once
 
+#include <memory>
+#include <vector>
+
 #include <rendering/ainb/UIAINBEditorNodeBase.h>
 
 namespace application::rendering::ainb::nodes

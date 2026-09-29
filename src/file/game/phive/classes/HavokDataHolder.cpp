@@ -1,3 +1,5 @@
+#include <vector>
+#include <cstdint>
 #include "HavokDataHolder.h"
 
 namespace application::file::game::phive::classes

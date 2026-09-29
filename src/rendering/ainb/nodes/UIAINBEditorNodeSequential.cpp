@@ -1,3 +1,8 @@
+#include <algorithm>
+#include <memory>
+#include <string>
+#include <vector>
+#include <cstdint>
 #include "UIAINBEditorNodeSequential.h"
 
 #include <util/Logger.h>

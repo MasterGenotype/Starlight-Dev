@@ -1,3 +1,4 @@
+#include <string>
 #include "UIPlugins.h"
 
 #include "imgui.h"

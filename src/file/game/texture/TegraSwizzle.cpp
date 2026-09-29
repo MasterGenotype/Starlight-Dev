@@ -1,3 +1,7 @@
+#include <algorithm>
+#include <cstring>
+#include <vector>
+#include <cstdint>
 #include "TegraSwizzle.h"
 
 namespace application::file::game::texture

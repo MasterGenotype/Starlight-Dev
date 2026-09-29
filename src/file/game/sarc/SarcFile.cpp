@@ -1,3 +1,9 @@
+#include <algorithm>
+#include <fstream>
+#include <iterator>
+#include <string>
+#include <vector>
+#include <cstdint>
 #include "SarcFile.h"
 
 #include <util/Logger.h>

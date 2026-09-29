@@ -1,6 +1,10 @@
+#include <algorithm>
+#include <string>
+#include <vector>
 #include <util/FileUtil.h>
 
 #include <filesystem>
+#include <iterator>
 #include <fstream>
 #include <util/Logger.h>
 #include <manager/ProjectMgr.h>

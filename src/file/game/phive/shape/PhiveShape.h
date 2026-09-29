@@ -1,5 +1,8 @@
 #pragma once
 
+#include <utility>
+#include <cstdint>
+
 #include <file/game/phive/classes/HavokTagFile.h>
 #include <file/game/phive/classes/HavokClasses.h>
 #include <file/game/phive/util/PhiveMaterialData.h>

@@ -1,3 +1,13 @@
+#include <algorithm>
+#include <cstring>
+#include <fstream>
+#include <iterator>
+#include <map>
+#include <sstream>
+#include <string>
+#include <utility>
+#include <vector>
+#include <cstdint>
 #include "AINBFile.h"
 
 #include <util/Logger.h>

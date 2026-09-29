@@ -1,3 +1,9 @@
+#include <algorithm>
+#include <cstring>
+#include <iterator>
+#include <string>
+#include <vector>
+#include <cstdint>
 #include "PhiveStaticCompoundFile.h"
 
 #include <util/Logger.h>

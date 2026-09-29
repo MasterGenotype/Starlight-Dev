@@ -1,3 +1,13 @@
+#include <algorithm>
+#include <chrono>
+#include <filesystem>
+#include <functional>
+#include <memory>
+#include <optional>
+#include <string>
+#include <utility>
+#include <vector>
+#include <cstdint>
 #include "Scene.h"
 
 #include <unordered_set>

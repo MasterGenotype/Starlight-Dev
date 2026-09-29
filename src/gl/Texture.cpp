@@ -1,3 +1,5 @@
+#include <string>
+#include <vector>
 #include "Texture.h"
 
 #include <stb/stb_image.h>

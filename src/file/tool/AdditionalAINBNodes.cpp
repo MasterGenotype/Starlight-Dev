@@ -1,3 +1,6 @@
+#include <string>
+#include <vector>
+#include <cstdint>
 #include <file/tool/AdditionalAINBNodes.h>
 
 #include <file/game/byml/BymlFile.h>

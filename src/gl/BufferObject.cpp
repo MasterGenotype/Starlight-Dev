@@ -1,3 +1,5 @@
+#include <vector>
+#include <cstdint>
 #include "BufferObject.h"
 
 namespace application::gl

@@ -1,4 +1,5 @@
 #pragma once
+#include <cstdint>
 
 #include <game/Scene.h>
 #include <tool/scene/StaticCompoundImplementationBase.h>

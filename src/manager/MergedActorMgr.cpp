@@ -1,3 +1,7 @@
+#include <filesystem>
+#include <string>
+#include <unordered_map>
+#include <vector>
 #include "MergedActorMgr.h"
 
 #include <file/game/byml/BymlFile.h>

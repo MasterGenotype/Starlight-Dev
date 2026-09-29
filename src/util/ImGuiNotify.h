@@ -1,3 +1,4 @@
+#include <cstring>
 /**
  * @file ImGuiNotify.h
  * @brief A header-only library for creating toast notifications with ImGui.
@@ -13,6 +14,7 @@
 #define IMGUI_NOTIFY
 
 #pragma once
+#include <cstdint>
 
 #include <vector>			// Vector for storing notifications list
 #include <string>

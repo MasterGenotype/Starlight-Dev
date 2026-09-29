@@ -1,5 +1,9 @@
 #pragma once
 
+#include <string>
+#include <utility>
+#include <vector>
+
 #include <rendering/UIWindowBase.h>
 #include <manager/ActorInfoMgr.h>
 #include <optional>

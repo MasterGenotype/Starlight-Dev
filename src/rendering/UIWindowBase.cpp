@@ -1,3 +1,4 @@
+#include <string>
 #include "UIWindowBase.h"
 
 #include <manager/UIMgr.h>

@@ -1,3 +1,5 @@
+#include <string>
+#include <vector>
 #include "MateArchive.h"
 
 #include <file/game/sarc/SarcFile.h>

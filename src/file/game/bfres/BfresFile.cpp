@@ -1,3 +1,11 @@
+#include <algorithm>
+#include <cmath>
+#include <fstream>
+#include <string>
+#include <unordered_map>
+#include <variant>
+#include <vector>
+#include <cstdint>
 #define ZSTD_STATIC_LINKING_ONLY
 
 #include "BfresFile.h"

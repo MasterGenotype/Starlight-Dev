@@ -1,3 +1,11 @@
+#include <algorithm>
+#include <filesystem>
+#include <iostream>
+#include <limits>
+#include <optional>
+#include <string>
+#include <vector>
+#include <cstdint>
 #include "StaticCompoundImplementationSingleScene.h"
 
 #include <file/game/zstd/ZStdBackend.h>

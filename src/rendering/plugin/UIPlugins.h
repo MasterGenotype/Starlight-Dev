@@ -1,5 +1,7 @@
 #pragma once
 
+#include <string>
+
 #include <rendering/UIWindowBase.h>
 
 namespace application::rendering::plugin

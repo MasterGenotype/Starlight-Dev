@@ -1,3 +1,9 @@
+#include <algorithm>
+#include <cmath>
+#include <limits>
+#include <utility>
+#include <vector>
+#include <cstdint>
 #include "BVNode.h"
 
 #include <util/Logger.h>
